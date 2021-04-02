@@ -163,6 +163,7 @@ func main() {
 	if bzltestutil.ShouldWrap() {
 		err := bzltestutil.Wrap("{{.Pkgname}}")
 		if xerr, ok := err.(*exec.ExitError); ok {
+			log.Printf("Test %v exited with error code %v", os.Getenv("TEST_TARGET"), xerr.ExitCode())
 			os.Exit(xerr.ExitCode())
 		} else if err != nil {
 			log.Print(err)
