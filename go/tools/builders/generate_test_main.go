@@ -170,6 +170,7 @@ func main() {
 		exitCode := 0
 		if xerr, ok := err.(*exec.ExitError); ok {
 			exitCode = xerr.ExitCode()
+			log.Printf("Test %v exited with error code %v", os.Getenv("TEST_TARGET"), exitCode)
 		} else if err != nil {
 			log.Print(err)
 			exitCode = bzltestutil.TestWrapperAbnormalExit
