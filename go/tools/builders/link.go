@@ -30,7 +30,21 @@ import (
 	"strings"
 )
 
+// NOTE(ricky): The go executable freaks out if the PATH contains relative
+// paths. Unfortunately, that happens normally as part of the Bazel build
+// process when using custom toolchains. As a result, we munge all the paths in
+// PATH to be absolute.
+// https://github.com/golang/go/commit/953d1feca9b21af075ad5fc8a3dad096d3ccc3a0
+func mungePath() {
+	var newPaths []string
+	for _, path := range strings.Split(os.Getenv("PATH"), string(os.PathListSeparator)) {
+		newPaths = append(newPaths, abs(path))
+	}
+	os.Setenv("PATH", strings.Join(newPaths, string(os.PathListSeparator)))
+}
+
 func link(args []string) error {
+	mungePath()
 	// Parse arguments.
 	args, _, err := expandParamsFiles(args)
 	if err != nil {
