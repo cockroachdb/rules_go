@@ -160,6 +160,12 @@ func testsInShard() []testing.InternalTest {
 }
 
 func main() {
+	// NOTE(ricky): Bazel sets the TEST_TMPDIR env variable, but Cockroach
+	// tests generally consult TMPDIR.
+	err := os.Setenv("TMPDIR", os.Getenv("TEST_TMPDIR"))
+	if err != nil {
+		panic(err)
+	}
 	if bzltestutil.ShouldWrap() {
 		err := bzltestutil.Wrap("{{.Pkgname}}")
 		if xerr, ok := err.(*exec.ExitError); ok {
