@@ -65,7 +65,7 @@ def cgo_configure(go, srcs, cdeps, cppopts, copts, cxxopts, clinkopts):
         clinkopts = [
             option
             for option in clinkopts
-            if option not in ("-lstdc++", "-lc++")
+            if option not in ("-lc++",)
         ]
 
     if go.mode != LINKMODE_NORMAL:
