@@ -85,6 +85,11 @@ func Wrap(pkg string) error {
 			return fmt.Errorf("error while generating testreport: %s", werr)
 		}
 	}
+	if out, ok := os.LookupEnv("GO_TEST_JSON_OUTPUT_FILE"); ok {
+		if err := ioutil.WriteFile(out, jsonBuffer.Bytes(), 0664); err != nil {
+			return fmt.Errorf("error writing test json: %s", err)
+		}
+	}
 	return err
 }
 
