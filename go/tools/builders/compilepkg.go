@@ -169,7 +169,8 @@ func compileArchive(
 	packageListPath string,
 	outPath string,
 	outXPath string,
-	cgoExportHPath string) error {
+	cgoExportHPath string,
+) error {
 
 	workDir, cleanup, err := goenv.workDir()
 	if err != nil {
@@ -395,7 +396,7 @@ func compileArchive(
 	}
 
 	// Compile the filtered .go files.
-	if err := compileGo(goenv, goSrcs, packagePath, importcfgPath, embedcfgPath, asmHdrPath, symabisPath, gcFlags, outPath); err != nil {
+	if err := compileGo(goenv, workDir, goSrcs, packagePath, importcfgPath, embedcfgPath, asmHdrPath, symabisPath, gcFlags, outPath); err != nil {
 		return err
 	}
 
@@ -465,7 +466,14 @@ func compileArchive(
 	return appendFiles(goenv, outXPath, []string{pkgDefPath})
 }
 
-func compileGo(goenv *env, srcs []string, packagePath, importcfgPath, embedcfgPath, asmHdrPath, symabisPath string, gcFlags []string, outPath string) error {
+func compileGo(
+	goenv *env,
+	workDir string,
+	srcs []string,
+	packagePath, importcfgPath, embedcfgPath, asmHdrPath, symabisPath string,
+	gcFlags []string,
+	outPath string,
+) error {
 	args := goenv.goTool("compile")
 	args = append(args, "-p", packagePath, "-importcfg", importcfgPath, "-pack")
 	if embedcfgPath != "" {
@@ -482,6 +490,14 @@ func compileGo(goenv *env, srcs []string, packagePath, importcfgPath, embedcfgPa
 	args = append(args, "--")
 	args = append(args, srcs...)
 	absArgs(args, []string{"-I", "-o", "-trimpath", "-importcfg"})
+
+	// Change the working directory so that any compile errors show the relative
+	// paths.
+	args[0] = abs(args[0])
+	if err := os.Chdir(workDir); err != nil {
+		return err
+	}
+
 	return goenv.runCommand(args)
 }
 
