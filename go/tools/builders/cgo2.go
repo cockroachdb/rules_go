@@ -204,19 +204,14 @@ func cgo2(goenv *env, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSr
 
 	// Copy regular Go source files into the work directory so that we can
 	// use -trimpath=workDir.
-	subDir := filepath.Join(workDir, packagePath)
-	err = os.MkdirAll(subDir, 0755)
-	if err != nil {
-		return "", nil, nil, err
-	}
-	goBases, err := gatherSrcs(subDir, goSrcs)
+	goBases, err := gatherSrcs(workDir, goSrcs)
 	if err != nil {
 		return "", nil, nil, err
 	}
 
 	allGoSrcs = make([]string, len(goSrcs)+len(genGoSrcs))
 	for i := range goSrcs {
-		allGoSrcs[i] = filepath.Join(subDir, goBases[i])
+		allGoSrcs[i] = filepath.Join(workDir, goBases[i])
 	}
 	copy(allGoSrcs[len(goSrcs):], genGoSrcs)
 	return workDir, allGoSrcs, cObjs, nil
