@@ -321,14 +321,24 @@ func compileArchive(
 				return err
 			}
 		}
-		gcFlags = append(gcFlags, createTrimPath(gcFlags, srcDir))
+
+		gcFlags = append(gcFlags, fmt.Sprintf("-trimpath=%s=>%s", abs(srcDir), packagePath))
 	} else {
 		if cgoExportHPath != "" {
 			if err := os.WriteFile(cgoExportHPath, nil, 0o666); err != nil {
 				return err
 			}
 		}
-		gcFlags = append(gcFlags, createTrimPath(gcFlags, "."))
+		// We want the source files to show up (e.g. in stack traces) with the package
+		// path. We use -trimpath to replace the root path with the correct prefix
+		// of the package path.
+		root := abs(".")
+		relSrcPath, err := filepath.Rel(root, srcs.goSrcs[0].filename)
+		if err != nil {
+			return err
+		}
+		rootPkgPath := filepath.Clean(strings.TrimSuffix(packagePath, filepath.Dir(relSrcPath)))
+		gcFlags = append(gcFlags, fmt.Sprintf("-trimpath=%s=>%s", root, rootPkgPath))
 	}
 
 	importcfgPath, err := checkImportsAndBuildCfg(goenv, importPath, srcs, deps, packageListPath, recompileInternalDeps, compilingWithCgo, coverMode, workDir)
@@ -495,7 +505,7 @@ func compileGo(goenv *env, srcs []string, packagePath, importcfgPath, embedcfgPa
 	args = append(args, "-linkobj", outLinkobjPath)
 	args = append(args, "--")
 	args = append(args, srcs...)
-	absArgs(args, []string{"-I", "-o", "-trimpath", "-importcfg"})
+	absArgs(args, []string{"-I", "-o", "-importcfg"})
 	return goenv.runCommand(args)
 }
 
