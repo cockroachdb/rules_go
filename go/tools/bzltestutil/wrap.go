@@ -77,6 +77,7 @@ func Wrap(pkg string) error {
 	err := cmd.Run()
 	jsonConverter.Close()
 	if out, ok := os.LookupEnv("XML_OUTPUT_FILE"); ok {
+		fmt.Printf("writing to XML_OUTPUT_FILE: %s\n", out)
 		werr := writeReport(jsonBuffer, pkg, out)
 		if werr != nil {
 			if err != nil {
@@ -84,6 +85,8 @@ func Wrap(pkg string) error {
 			}
 			return fmt.Errorf("error while generating testreport: %s", werr)
 		}
+	} else {
+		fmt.Println("Could not look up XML_OUTPUT_FILE")
 	}
 	if out, ok := os.LookupEnv("GO_TEST_JSON_OUTPUT_FILE"); ok {
 		if err := ioutil.WriteFile(out, jsonBuffer.Bytes(), 0664); err != nil {
