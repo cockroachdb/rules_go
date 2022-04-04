@@ -347,19 +347,29 @@ func compileArchive(
 	// If we have cgo, generate separate C and go files, and compile the
 	// C files.
 	var objFiles []string
-	if compilingWithCgo {
-		// If the package uses Cgo, compile .s and .S files with cgo2, not the Go assembler.
-		// Otherwise: the .s/.S files will be compiled with the Go assembler later
+	var goSrcsMapping []pathPair
+	if cgoEnabled && haveCgo {
+		// TODO(#2006): Compile .s and .S files with cgo2, not the Go assembler.
+		// If cgo is not enabled or we don't have other cgo sources, don't
+		// compile .S files.
 		var srcDir string
-		srcDir, goSrcs, objFiles, err = cgo2(goenv, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSrcs, hSrcs, packagePath, packageName, cc, cppFlags, cFlags, cxxFlags, objcFlags, objcxxFlags, ldFlags, cgoExportHPath)
+		srcDir, goSrcsMapping, objFiles, err = cgo2(goenv, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, nil, hSrcs, packagePath, packageName, cc, cppFlags, cFlags, cxxFlags, objcFlags, objcxxFlags, ldFlags, cgoExportHPath)
 		if err != nil {
 			return err
 		}
+		goSrcs = make([]string, len(goSrcsMapping))
+		for i, v := range goSrcsMapping {
+			goSrcs[i] = v.workingPath
+		}
 		if coverMode != "" && nogoPath != "" {
 			// Compile original source files, not coverage instrumented, for nogo
-			_, goSrcsNogo, _, err = cgo2(goenv, goSrcsNogo, cgoSrcsNogo, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSrcs, hSrcs, packagePath, packageName, cc, cppFlags, cFlags, cxxFlags, objcFlags, objcxxFlags, ldFlags, cgoExportHPath)
+			_, goSrcsMapping, _, err = cgo2(goenv, goSrcsNogo, cgoSrcsNogo, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSrcs, hSrcs, packagePath, packageName, cc, cppFlags, cFlags, cxxFlags, objcFlags, objcxxFlags, ldFlags, cgoExportHPath)
 			if err != nil {
 				return err
+			}
+			goSrcsNogo = make([]string, len(goSrcsMapping))
+			for i, v := range goSrcsMapping {
+				goSrcsNogo[i] = v.workingPath
 			}
 		} else {
 			goSrcsNogo = goSrcs
@@ -492,7 +502,7 @@ func compileArchive(
 	}
 
 	// Compile the filtered .go files.
-	if err := compileGo(goenv, goSrcs, packagePath, importcfgPath, embedcfgPath, asmHdrPath, symabisPath, gcFlags, pgoprofile, outLinkObj, outInterfacePath); err != nil {
+	if err := compileGo(goenv, goSrcs, packagePath, importcfgPath, embedcfgPath, asmHdrPath, symabisPath, gcFlags, goSrcsMapping, pgoprofile, outLinkObj, outInterfacePath); err != nil {
 		return err
 	}
 
@@ -544,7 +554,7 @@ func compileArchive(
 	return nil
 }
 
-func compileGo(goenv *env, srcs []string, packagePath, importcfgPath, embedcfgPath, asmHdrPath, symabisPath string, gcFlags []string, pgoprofile, outLinkobjPath, outInterfacePath string) error {
+func compileGo(goenv *env, srcs []string, packagePath, importcfgPath, embedcfgPath, asmHdrPath, symabisPath string, gcFlags []string, paths []pathPair, pgoprofile, outLinkobjPath, outInterfacePath string) error {
 	args := goenv.goTool("compile")
 	args = append(args, "-p", packagePath, "-importcfg", importcfgPath, "-pack")
 	if embedcfgPath != "" {
@@ -565,7 +575,7 @@ func compileGo(goenv *env, srcs []string, packagePath, importcfgPath, embedcfgPa
 	args = append(args, "--")
 	args = append(args, srcs...)
 	absArgs(args, []string{"-I", "-o", "-importcfg"})
-	return goenv.runCommand(args)
+	return goenv.runCommandAndReplacePaths(args, paths)
 }
 
 func runNogo(ctx context.Context, workDir string, nogoPath string, srcs []string, facts []archive, packagePath, importcfgPath, outFactsPath string) error {
