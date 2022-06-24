@@ -165,6 +165,7 @@ func compile(args []string) error {
 	var nogoOutput bytes.Buffer
 	nogoStatus := nogoNotRun
 	outFact := filepath.Join(xTempDir, nogoFact)
+	outUnused := filepath.Join(xTempDir, "unused.out")
 	if *nogo != "" {
 		var nogoargs []string
 		nogoargs = append(nogoargs, "-p", *packagePath)
@@ -173,6 +174,7 @@ func compile(args []string) error {
 			nogoargs = append(nogoargs, "-fact", fmt.Sprintf("%s=%s", arc.importPath, arc.file))
 		}
 		nogoargs = append(nogoargs, "-x", outFact)
+		nogoargs = append(nogoargs, "-u", outUnused)
 		nogoargs = append(nogoargs, filenames...)
 		nogoCmd := exec.Command(*nogo, nogoargs...)
 		nogoCmd.Stdout, nogoCmd.Stderr = &nogoOutput, &nogoOutput
@@ -215,7 +217,7 @@ func compile(args []string) error {
 	}
 	pkgDefPath := filepath.Join(xTempDir, pkgDef)
 	if nogoStatus == nogoSucceeded {
-		return appendFiles(goenv, *outExport, []string{pkgDefPath, outFact})
+		return appendFiles(goenv, *outExport, []string{pkgDefPath, outFact, outUnused})
 	}
 	return appendFiles(goenv, *outExport, []string{pkgDefPath})
 }
