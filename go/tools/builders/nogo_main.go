@@ -22,6 +22,7 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -41,6 +42,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/gcexportdata"
 	"golang.org/x/tools/internal/facts"
+	"honnef.co/go/tools/unused"
 )
 
 const nogoBaseConfigName = "_base"
@@ -52,6 +54,11 @@ func init() {
 }
 
 var typesSizes = types.SizesFor("gc", os.Getenv("GOARCH"))
+
+type UnusedResult struct {
+	Unused map[string]*[]string
+	Used   map[string]*[]string
+}
 
 func main() {
 	log.SetFlags(0) // no timestamp
@@ -75,6 +82,7 @@ func run(args []string) error {
 	importcfg := flags.String("importcfg", "", "The import configuration file")
 	packagePath := flags.String("p", "", "The package path (importmap) of the package being compiled")
 	xPath := flags.String("x", "", "The archive file where serialized facts should be written")
+	unusedPath := flags.String("u", "", "The archive file where unused outupt data should be written")
 	flags.Parse(args)
 	srcs := flags.Args()
 
@@ -83,7 +91,7 @@ func run(args []string) error {
 		return fmt.Errorf("error parsing importcfg: %v", err)
 	}
 
-	diagnostics, facts, err := checkPackage(analyzers, *packagePath, packageFile, importMap, factMap, srcs)
+	diagnostics, facts, actions, err := checkPackage(analyzers, *packagePath, packageFile, importMap, factMap, srcs)
 	if err != nil {
 		return fmt.Errorf("error running analyzers: %v", err)
 	}
@@ -95,8 +103,92 @@ func run(args []string) error {
 			return fmt.Errorf("error writing facts: %v", err)
 		}
 	}
+	if *unusedPath != "" {
+		out := UnusedResult{
+			Unused: make(map[string]*[]string),
+			Used:   make(map[string]*[]string),
+		}
+		for _, act := range actions {
+			if act.a.Name == "U1000" {
+				result, ok := act.result.(unused.Result)
+				if !ok {
+					return fmt.Errorf("unexpected result type for unused analyzer")
+				}
+				for _, unusedObj := range result.Unused {
+					if !careAboutObjectUsed(unusedObj, act.pkg.fset) {
+						continue
+					}
+					registerObjectUsed(unusedObj, out.Unused)
+				}
+				for _, usedObj := range result.Used {
+					if !careAboutObjectUsed(usedObj, act.pkg.fset) {
+						continue
+					}
+					registerObjectUsed(usedObj, out.Used)
+				}
+				for _, lst := range out.Unused {
+					sortAndDedup(lst)
+				}
+				for _, lst := range out.Used {
+					sortAndDedup(lst)
+				}
+				break
+			}
+		}
+		encoded, err := json.Marshal(out)
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(abs(*unusedPath), encoded, 0666); err != nil {
+			return fmt.Errorf("error writing unused out: %v", err)
+		}
+	}
 
 	return nil
+}
+
+func careAboutObjectUsed(obj types.Object, fset *token.FileSet) bool {
+	if obj.Exported() || !strings.HasPrefix(obj.Pkg().Path(), "github.com/cockroachdb/cockroach/") {
+		// Exported functions are never reported by the unused linter,
+		// and we won't bother with stuff that doesn't come from the
+		// cockroach repo itself.
+		return false
+	}
+	filename := fset.Position(obj.Pos()).Filename
+	if strings.HasSuffix(filename, ".eg.go") || strings.HasSuffix(filename, ".pb.go") || strings.HasSuffix(filename, ".pb.gw.go") || strings.HasSuffix(filename, "_generated.go") {
+		return false
+	}
+	name := obj.Name()
+	if name == "_" || strings.HasPrefix(name, "_Cgo") || strings.HasPrefix(name, "_Ctype") || strings.HasPrefix(name, "_cgo") || strings.HasPrefix(name, "_Cfunc") || strings.HasPrefix(name, "__cgofn_") {
+		return false
+	}
+	return true
+}
+
+func registerObjectUsed(obj types.Object, reg map[string]*[]string) {
+	pkgPath := obj.Pkg().Path()
+	id := fmt.Sprintf("%s:%d", obj.Name(), obj.Pos())
+	lst, ok := reg[pkgPath]
+	if ok {
+		*lst = append(*lst, id)
+	} else {
+		reg[pkgPath] = &[]string{id}
+	}
+}
+
+func sortAndDedup(lst *[]string) {
+	sort.Strings(*lst)
+	var dst int
+	var prev string
+	for _, str := range *lst {
+		if prev == str {
+			continue
+		}
+		(*lst)[dst] = str
+		prev = str
+		dst += 1
+	}
+	*lst = (*lst)[0:dst]
 }
 
 // Adapted from go/src/cmd/compile/internal/gc/main.go. Keep in sync.
@@ -147,7 +239,7 @@ func readImportCfg(file string) (packageFile map[string]string, importMap map[st
 // It returns an empty string if no source code diagnostics need to be printed.
 //
 // This implementation was adapted from that of golang.org/x/tools/go/checker/internal/checker.
-func checkPackage(analyzers []*analysis.Analyzer, packagePath string, packageFile, importMap map[string]string, factMap map[string]string, filenames []string) (string, []byte, error) {
+func checkPackage(analyzers []*analysis.Analyzer, packagePath string, packageFile, importMap map[string]string, factMap map[string]string, filenames []string) (string, []byte, map[*analysis.Analyzer]*action, error) {
 	// Register fact types and establish dependencies between analyzers.
 	actions := make(map[*analysis.Analyzer]*action)
 	var visit func(a *analysis.Analyzer) *action
@@ -177,14 +269,14 @@ func checkPackage(analyzers []*analysis.Analyzer, packagePath string, packageFil
 		if cfg, ok := configs[a.Name]; ok {
 			for flagKey, flagVal := range cfg.analyzerFlags {
 				if strings.HasPrefix(flagKey, "-") {
-					return "", nil, fmt.Errorf(
+					return "", nil, nil, fmt.Errorf(
 						"%s: flag should not begin with '-': %s", a.Name, flagKey)
 				}
 				if flag := a.Flags.Lookup(flagKey); flag == nil {
-					return "", nil, fmt.Errorf("%s: unrecognized flag: %s", a.Name, flagKey)
+					return "", nil, nil, fmt.Errorf("%s: unrecognized flag: %s", a.Name, flagKey)
 				}
 				if err := a.Flags.Set(flagKey, flagVal); err != nil {
-					return "", nil, fmt.Errorf(
+					return "", nil, nil, fmt.Errorf(
 						"%s: invalid value for flag: %s=%s: %w", a.Name, flagKey, flagVal, err)
 				}
 			}
@@ -196,7 +288,7 @@ func checkPackage(analyzers []*analysis.Analyzer, packagePath string, packageFil
 	imp := newImporter(importMap, packageFile, factMap)
 	pkg, err := load(packagePath, imp, filenames)
 	if err != nil {
-		return "", nil, fmt.Errorf("error loading package: %v", err)
+		return "", nil, nil, fmt.Errorf("error loading package: %v", err)
 	}
 	for _, act := range actions {
 		act.pkg = pkg
@@ -208,7 +300,7 @@ func checkPackage(analyzers []*analysis.Analyzer, packagePath string, packageFil
 	// Process diagnostics and encode facts for importers of this package.
 	diagnostics := checkAnalysisResults(roots, pkg)
 	facts := pkg.facts.Encode()
-	return diagnostics, facts, nil
+	return diagnostics, facts, actions, nil
 }
 
 // An action represents one unit of analysis work: the application of

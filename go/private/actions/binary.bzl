@@ -38,7 +38,7 @@ def emit_binary(
     if name == "" and executable == None:
         fail("either name or executable must be set")
 
-    archive = go.archive(go, source)
+    archive = go.archive(go, source, extra_archive_datas = test_archives)
     if not executable:
         extension = go.exe_extension
         if go.mode.link == LINKMODE_C_SHARED:
