@@ -39,7 +39,7 @@ load(
     "emit_compilepkg",
 )
 
-def emit_archive(go, source = None, _recompile_suffix = ""):
+def emit_archive(go, source = None, _recompile_suffix = "", extra_archive_datas = []):
     """See go/toolchains.rst#archive for full documentation."""
 
     if source == None:
@@ -172,6 +172,7 @@ def emit_archive(go, source = None, _recompile_suffix = ""):
         # Information needed by dependents
         file = out_lib,
         export_file = out_export,
+        extra_archive_datas = tuple(extra_archive_datas),
         data_files = as_tuple(data_files),
         _cgo_deps = as_tuple(cgo_deps),
     )
