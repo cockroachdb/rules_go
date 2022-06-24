@@ -404,11 +404,12 @@ func compileArchive(
 	// Run nogo concurrently.
 	var nogoChan chan error
 	outFactsPath := filepath.Join(workDir, nogoFact)
+	outUnusedPath := filepath.Join(workDir, "unused.out")
 	if nogoPath != "" {
 		ctx, cancel := context.WithCancel(context.Background())
 		nogoChan = make(chan error)
 		go func() {
-			nogoChan <- runNogo(ctx, workDir, nogoPath, goSrcs, deps, packagePath, importcfgPath, outFactsPath)
+			nogoChan <- runNogo(ctx, workDir, nogoPath, goSrcs, deps, packagePath, importcfgPath, outFactsPath, outUnusedPath)
 		}()
 		defer func() {
 			if nogoChan != nil {
@@ -497,7 +498,7 @@ func compileArchive(
 	}
 	pkgDefPath := filepath.Join(workDir, pkgDef)
 	if nogoStatus == nogoSucceeded {
-		return appendFiles(goenv, outXPath, []string{pkgDefPath, outFactsPath})
+		return appendFiles(goenv, outXPath, []string{pkgDefPath, outFactsPath, outUnusedPath})
 	}
 	return appendFiles(goenv, outXPath, []string{pkgDefPath})
 }
@@ -522,7 +523,7 @@ func compileGo(goenv *env, srcs []string, packagePath, importcfgPath, embedcfgPa
 	return goenv.runCommandAndReplacePaths(args, paths)
 }
 
-func runNogo(ctx context.Context, workDir string, nogoPath string, srcs []string, deps []archive, packagePath, importcfgPath, outFactsPath string) error {
+func runNogo(ctx context.Context, workDir string, nogoPath string, srcs []string, deps []archive, packagePath, importcfgPath, outFactsPath, outUnusedPath string) error {
 	args := []string{nogoPath}
 	args = append(args, "-p", packagePath)
 	args = append(args, "-importcfg", importcfgPath)
@@ -530,6 +531,7 @@ func runNogo(ctx context.Context, workDir string, nogoPath string, srcs []string
 		args = append(args, "-fact", fmt.Sprintf("%s=%s", dep.importPath, dep.file))
 	}
 	args = append(args, "-x", outFactsPath)
+	args = append(args, "-u", outUnusedPath)
 	args = append(args, srcs...)
 
 	paramsFile := filepath.Join(workDir, "nogo.param")
