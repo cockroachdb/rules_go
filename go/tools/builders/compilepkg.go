@@ -390,7 +390,9 @@ func compileArchive(
 	if err != nil {
 		return err
 	}
-	defer os.Remove(importcfgPath)
+	if !goenv.shouldPreserveWorkDir {
+		defer os.Remove(importcfgPath)
+	}
 
 	// Build an embedcfg file mapping embed patterns to filenames.
 	// Embed patterns are relative to any one of a list of root directories
@@ -420,7 +422,9 @@ func compileArchive(
 		return err
 	}
 	if embedcfgPath != "" {
-		defer os.Remove(embedcfgPath)
+		if !goenv.shouldPreserveWorkDir {
+			defer os.Remove(embedcfgPath)
+		}
 	}
 
 	// Run nogo concurrently.
@@ -468,7 +472,9 @@ func compileArchive(
 	}
 	symabisPath, err := buildSymabisFile(goenv, srcs.sSrcs, srcs.hSrcs, asmHdrPath)
 	if symabisPath != "" {
-		defer os.Remove(symabisPath)
+		if !goenv.shouldPreserveWorkDir {
+			defer os.Remove(symabisPath)
+		}
 	}
 	if err != nil {
 		return err
