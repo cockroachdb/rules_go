@@ -165,11 +165,12 @@ func careAboutObjectUsed(obj types.Object, fset *token.FileSet) bool {
 
 func registerObjectUsed(obj types.Object, reg map[string]*[]string) {
 	pkgPath := obj.Pkg().Path()
+	id := fmt.Sprintf("%s:%d", obj.Name(), obj.Pos())
 	lst, ok := reg[pkgPath]
 	if ok {
-		*lst = append(*lst, obj.Name())
+		*lst = append(*lst, id)
 	} else {
-		reg[pkgPath] = &[]string{obj.Name()}
+		reg[pkgPath] = &[]string{id}
 	}
 }
 
