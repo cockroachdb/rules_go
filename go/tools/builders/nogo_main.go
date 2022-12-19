@@ -165,11 +165,36 @@ func careAboutObjectUsed(obj types.Object, fset *token.FileSet) bool {
 
 func registerObjectUsed(obj types.Object, reg map[string]*[]string) {
 	pkgPath := obj.Pkg().Path()
+	var id string
+	if sig, ok := obj.Type().(*types.Signature); ok {
+		recv := sig.Recv()
+		if recv == nil {
+			id = obj.Name()
+		} else {
+			_, ok := recv.Type().(*types.Interface)
+			if ok {
+				// A function with an anonymous interface receiver.
+				return
+			}
+			id = fmt.Sprintf("(%s).%s", recv.Type().String(), obj.Name())
+			// Sanity check: make sure the prefix is as we expect.
+			// It'll either be a pointer receiver or a non-pointer receiver,
+			// and the path will be the path of the package being built.
+			prefix := "(" + pkgPath + "."
+			starPrefix := "(*" + pkgPath + "."
+			if !strings.HasPrefix(id, prefix) && !strings.HasPrefix(id, starPrefix) {
+				panic(fmt.Sprintf("%+v", recv))
+			}
+			id = strings.ReplaceAll(id, pkgPath + ".", "")
+		}
+	} else {
+		id = obj.Name()
+	}
 	lst, ok := reg[pkgPath]
 	if ok {
-		*lst = append(*lst, obj.Name())
+		*lst = append(*lst, id)
 	} else {
-		reg[pkgPath] = &[]string{obj.Name()}
+		reg[pkgPath] = &[]string{id}
 	}
 }
 
