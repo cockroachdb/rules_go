@@ -110,6 +110,7 @@ You may need to use the flags --cpu=x64_windows --compiler=mingw-gcc.`)
 		}
 	}
 	os.Setenv("CGO_LDFLAGS_ALLOW", b.String())
+	os.Setenv("GODEBUG", "installgoroot=all")
 
 	if len(experiments) > 0 {
 		os.Setenv("GOEXPERIMENT", strings.Join(experiments, ","))

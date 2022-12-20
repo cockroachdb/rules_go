@@ -1,5 +1,6 @@
 load("@{rules_go_repo_name}//go/private/rules:binary.bzl", "go_tool_binary")
 load("@{rules_go_repo_name}//go/private/rules:sdk.bzl", "package_list")
+load("@{rules_go_repo_name}//go/private/rules:transition.bzl", "non_go_reset_target")
 load("@{rules_go_repo_name}//go/private:go_toolchain.bzl", "declare_go_toolchains")
 load("@{rules_go_repo_name}//go:def.bzl", "go_sdk")
 
@@ -10,6 +11,7 @@ filegroup(
     srcs = glob(
         ["pkg/{goos}_{goarch}/**/*.a"],
         exclude = ["pkg/{goos}_{goarch}/**/cmd/**"],
+        allow_empty = True,
     ),
 )
 
@@ -43,12 +45,18 @@ go_sdk(
     root_file = "ROOT",
     experiments = {experiments},
     tools = [":tools"],
+    version = "{version}",
 )
 
 go_tool_binary(
     name = "builder",
     srcs = ["@{rules_go_repo_name}//go/tools/builders:builder_srcs"],
     sdk = ":go_sdk",
+)
+
+non_go_reset_target(
+    name = "builder_reset",
+    dep = ":builder"
 )
 
 # TODO(jayconrod): Gazelle depends on this file directly. This dependency
@@ -61,7 +69,7 @@ package_list(
 )
 
 declare_go_toolchains(
-    builder = ":builder",
+    builder = ":builder_reset",
     host_goos = "{goos}",
     sdk = ":go_sdk",
 )

@@ -33,6 +33,7 @@ def _go_sdk_impl(ctx):
         srcs = ctx.files.srcs,
         tools = ctx.files.tools,
         go = ctx.executable.go,
+        version = ctx.attr.version,
     )]
 
 go_sdk = rule(
@@ -61,7 +62,10 @@ go_sdk = rule(
                    "standard library that may be imported."),
         ),
         "libs": attr.label_list(
-            allow_files = [".a"],
+            # allow_files is not set to [".a"] because that wouldn't allow
+            # for zero files to be present, as is the case in Go 1.20+.
+            # See also https://github.com/bazelbuild/bazel/issues/7516
+            allow_files = True,
             doc = ("Pre-compiled .a files for the standard library, " +
                    "built for the execution platform"),
         ),
@@ -86,6 +90,9 @@ go_sdk = rule(
             executable = True,
             cfg = "exec",
             doc = "The go binary",
+        ),
+        "version": attr.string(
+            doc = "The version of the Go SDK.",
         ),
     },
     doc = ("Collects information about a Go SDK. The SDK must have a normal " +
