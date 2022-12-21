@@ -33,6 +33,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
@@ -118,13 +119,13 @@ func run(args []string) error {
 					if !careAboutObjectUsed(unusedObj, act.pkg.fset) {
 						continue
 					}
-					registerObjectUsed(unusedObj, out.Unused)
+					registerObjectUsed(unusedObj, act.pkg.fset, out.Unused)
 				}
 				for _, usedObj := range result.Used {
 					if !careAboutObjectUsed(usedObj, act.pkg.fset) {
 						continue
 					}
-					registerObjectUsed(usedObj, out.Used)
+					registerObjectUsed(usedObj, act.pkg.fset, out.Used)
 				}
 				for _, lst := range out.Unused {
 					sortAndDedup(lst)
@@ -155,7 +156,7 @@ func careAboutObjectUsed(obj types.Object, fset *token.FileSet) bool {
 		return false
 	}
 	filename := fset.Position(obj.Pos()).Filename
-	if strings.HasSuffix(filename, ".eg.go") || strings.HasSuffix(filename, ".pb.go") || strings.HasSuffix(filename, ".pb.gw.go") || strings.HasSuffix(filename, "_generated.go") {
+	if strings.HasSuffix(filename, ".eg.go") || strings.HasSuffix(filename, ".pb.go") || strings.HasSuffix(filename, ".pb.gw.go") || strings.HasSuffix(filename, ".og.go") || strings.HasSuffix(filename, "_generated.go") {
 		return false
 	}
 	name := obj.Name()
@@ -165,9 +166,10 @@ func careAboutObjectUsed(obj types.Object, fset *token.FileSet) bool {
 	return true
 }
 
-func registerObjectUsed(obj types.Object, reg map[string]*[]string) {
+func registerObjectUsed(obj types.Object, fset *token.FileSet, reg map[string]*[]string) {
 	pkgPath := obj.Pkg().Path()
-	id := fmt.Sprintf("%s:%d", obj.Name(), obj.Pos())
+	pos := fset.Position(obj.Pos())
+	id := fmt.Sprintf("%s:%s:%d", obj.Name(), filepath.Base(pos.Filename), pos.Line)
 	lst, ok := reg[pkgPath]
 	if ok {
 		*lst = append(*lst, id)
