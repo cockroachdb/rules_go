@@ -156,7 +156,12 @@ func careAboutObjectUsed(obj types.Object, fset *token.FileSet) bool {
 		return false
 	}
 	filename := fset.Position(obj.Pos()).Filename
-	if strings.HasSuffix(filename, ".eg.go") || strings.HasSuffix(filename, ".pb.go") || strings.HasSuffix(filename, ".pb.gw.go") || strings.HasSuffix(filename, ".og.go") || strings.HasSuffix(filename, "_generated.go") {
+	if strings.HasSuffix(filename, ".eg.go") ||
+		strings.HasSuffix(filename, ".pb.go") ||
+		strings.HasSuffix(filename, ".pb.gw.go") ||
+		strings.HasSuffix(filename, ".og.go") ||
+		strings.HasSuffix(filename, "_generated.go") ||
+		strings.HasSuffix(filename, "generated_test.go") {
 		return false
 	}
 	name := obj.Name()
