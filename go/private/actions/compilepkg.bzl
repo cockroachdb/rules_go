@@ -59,7 +59,8 @@ def emit_compilepkg(
         out_export = None,
         out_cgo_export_h = None,
         gc_goopts = [],
-        testfilter = None):  # TODO: remove when test action compiles packages
+        testfilter = None,  # TODO: remove when test action compiles packages
+        recompile_internal_deps = []):
     """Compiles a complete Go package."""
     if sources == None:
         fail("sources is a required parameter")
@@ -99,6 +100,8 @@ def emit_compilepkg(
         args.add("-cover_format", go.cover_format)
         args.add_all(cover, before_each = "-cover")
     args.add_all(archives, before_each = "-arc", map_each = _archive)
+    if recompile_internal_deps:
+        args.add_all(recompile_internal_deps, before_each = "-recompile_internal_deps")
     if importpath:
         args.add("-importpath", importpath)
     else:

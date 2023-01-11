@@ -591,14 +591,26 @@ def _recompile_external_deps(go, external_source, internal_archive, library_labe
     # is shared between the internal and external archive. The internal archive
     # can't import anything that imports itself.
     internal_source = internal_archive.source
-    internal_deps = [dep for dep in internal_source.deps if not need_recompile[get_archive(dep).data.label]]
+
+    internal_deps = []
+
+    # Pass internal dependencies that need to be recompiled down to the builder to check if the internal archive
+    # tries to import any of the dependencies. If there is, that means that there is a dependency cycle.
+    need_recompile_deps = []
+    for dep in internal_source.deps:
+        dep_data = get_archive(dep).data
+        if not need_recompile[dep_data.label]:
+            internal_deps.append(dep)
+        else:
+            need_recompile_deps.append(dep_data.importpath)
+
     x_defs = dict(internal_source.x_defs)
     x_defs.update(internal_archive.x_defs)
     attrs = structs.to_dict(internal_source)
     attrs["deps"] = internal_deps
     attrs["x_defs"] = x_defs
     internal_source = GoSource(**attrs)
-    internal_archive = go.archive(go, internal_source, _recompile_suffix = ".recompileinternal")
+    internal_archive = go.archive(go, internal_source, _recompile_suffix = ".recompileinternal", recompile_internal_deps = need_recompile_deps)
 
     # Build a map from labels to possibly recompiled GoArchives.
     label_to_archive = {}
