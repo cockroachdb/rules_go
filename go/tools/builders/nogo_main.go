@@ -41,8 +41,8 @@ import (
 	"sync"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/go/analysis/internal/facts"
 	"golang.org/x/tools/go/gcexportdata"
+	"golang.org/x/tools/internal/facts"
 	"honnef.co/go/tools/unused"
 )
 
@@ -140,7 +140,7 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(abs(*unusedPath), encoded, 0666); err != nil {
+		if err := ioutil.WriteFile(abs(*unusedPath), encoded, 0o666); err != nil {
 			return fmt.Errorf("error writing unused out: %v", err)
 		}
 	}
@@ -445,7 +445,7 @@ func load(packagePath string, imp *importer, filenames []string) (*goPackage, er
 	}
 	pkg.types, pkg.typesInfo = types, info
 
-	pkg.facts, err = facts.Decode(pkg.types, imp.readFacts)
+	pkg.facts, err = facts.NewDecoder(pkg.types).Decode(imp.readFacts)
 	if err != nil {
 		return nil, fmt.Errorf("internal error decoding facts: %v", err)
 	}
@@ -658,8 +658,8 @@ func (i *importer) Import(path string) (*types.Package, error) {
 	return gcexportdata.Read(r, i.fset, i.packageCache, path)
 }
 
-func (i *importer) readFacts(path string) ([]byte, error) {
-	archive := i.factMap[path]
+func (i *importer) readFacts(pkg *types.Package) ([]byte, error) {
+	archive := i.factMap[pkg.Path()]
 	if archive == "" {
 		// Packages that were not built with the nogo toolchain will not be
 		// analyzed, so there's no opportunity to store facts. This includes
