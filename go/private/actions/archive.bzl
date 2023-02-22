@@ -39,7 +39,6 @@ load(
     "emit_compilepkg",
 )
 
-
 def emit_archive(go, source = None, _recompile_suffix = "", recompile_internal_deps = None, extra_archive_datas = []):
     """See go/toolchains.rst#archive for full documentation."""
 
