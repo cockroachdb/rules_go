@@ -39,6 +39,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
@@ -368,6 +369,19 @@ func genTestMain(args []string) error {
 			// could have been aliased as a different identifier.
 
 			if strings.HasPrefix(fn.Name.Name, "Test") {
+				// Start - to be deleted (only used to mock skippedTests)
+				skippedTests := map[TestCase]bool{}
+				skippedTests[TestCase{Package: "pkg/cmd/dev", Name: "TestDevSpecialTest"}] = true
+				skippedTests[TestCase{Package: "pkg/ccl/kvccl/kvtenantccl", Name: "TestTenantUpgrade"}] = true
+				// End - to be deleted (only used to mock skippedTests)
+				packagePathFromPkg := filepath.Dir(f.filename)
+				tc := TestCase{
+					Package: packagePathFromPkg,
+					Name:    fn.Name.Name,
+				}
+				if skippedTests[tc] {
+					continue
+				}
 				if selExpr.Sel.Name != "T" {
 					continue
 				}
