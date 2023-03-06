@@ -148,14 +148,19 @@ func run(args []string) error {
 	return nil
 }
 
-func careAboutObjectUsed(obj types.Object, fset *token.FileSet) bool {
-	if obj.Exported() || !strings.HasPrefix(obj.Pkg().Path(), "github.com/cockroachdb/cockroach/") {
+func Exported(obj unused.Object) bool {
+	name := obj.ShortName
+	return len(name) != 0 && strings.ToUpper(string(name[0])) == string(name[0])
+}
+
+func careAboutObjectUsed(obj unused.Object, fset *token.FileSet) bool {
+	if Exported(obj) || !strings.HasPrefix(obj.Path.PkgPath, "github.com/cockroachdb/cockroach/") {
 		// Exported functions are never reported by the unused linter,
 		// and we won't bother with stuff that doesn't come from the
 		// cockroach repo itself.
 		return false
 	}
-	filename := fset.Position(obj.Pos()).Filename
+	filename := obj.Position.Filename
 	if strings.HasSuffix(filename, ".eg.go") ||
 		strings.HasSuffix(filename, ".pb.go") ||
 		strings.HasSuffix(filename, ".pb.gw.go") ||
@@ -164,17 +169,17 @@ func careAboutObjectUsed(obj types.Object, fset *token.FileSet) bool {
 		strings.HasSuffix(filename, "generated_test.go") {
 		return false
 	}
-	name := obj.Name()
+	name := obj.ShortName
 	if name == "_" || strings.HasPrefix(name, "_Cgo") || strings.HasPrefix(name, "_Ctype") || strings.HasPrefix(name, "_cgo") || strings.HasPrefix(name, "_Cfunc") || strings.HasPrefix(name, "__cgofn_") {
 		return false
 	}
 	return true
 }
 
-func registerObjectUsed(obj types.Object, fset *token.FileSet, reg map[string]*[]string) {
-	pkgPath := obj.Pkg().Path()
-	pos := fset.Position(obj.Pos())
-	id := fmt.Sprintf("%s:%s:%d", obj.Name(), filepath.Base(pos.Filename), pos.Line)
+func registerObjectUsed(obj unused.Object, fset *token.FileSet, reg map[string]*[]string) {
+	pkgPath := obj.Path.PkgPath
+	pos := obj.Position
+	id := fmt.Sprintf("%s:%s:%d", obj.ShortName, filepath.Base(pos.Filename), pos.Line)
 	lst, ok := reg[pkgPath]
 	if ok {
 		*lst = append(*lst, id)
