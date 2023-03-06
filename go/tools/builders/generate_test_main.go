@@ -63,15 +63,16 @@ type Example struct {
 
 // Cases holds template data.
 type Cases struct {
-	Imports     []*Import
-	Tests       []TestCase
-	Benchmarks  []TestCase
-	FuzzTargets []TestCase
-	Examples    []Example
-	TestMain    string
-	CoverMode   string
-	CoverFormat string
-	Pkgname     string
+	Imports           []*Import
+	Tests             []TestCase
+	Benchmarks        []TestCase
+	FuzzTargets       []TestCase
+	Examples          []Example
+	TestMain          string
+	CoverMode         string
+	CoverFormat       string
+	Pkgname           string
+	SkippedTestsRegex string
 }
 
 // Version returns whether v is a supported Go version (like "go1.18").
@@ -195,6 +196,10 @@ func main() {
 		flag.Lookup("test.run").Value.Set(filter)
 	}
 
+	if "{{.SkippedTestsRegex}}" != "" {
+		flag.Lookup("test.skip").Value.Set("{{.SkippedTestsRegex}}")
+	}
+
 	if failfast := os.Getenv("TESTBRIDGE_TEST_RUNNER_FAIL_FAST"); failfast != "" {
 		flag.Lookup("test.failfast").Value.Set("true")
 	}
@@ -247,6 +252,7 @@ func genTestMain(args []string) error {
 	coverMode := flags.String("cover_mode", "", "the coverage mode to use")
 	coverFormat := flags.String("cover_format", "", "the coverage report type to generate (go_cover or lcov)")
 	pkgname := flags.String("pkgname", "", "package name of test")
+	skippedTestsRegex := flags.String("skipped_tests_regex", "", "regex to pass to -test.skip")
 	flags.Var(&imports, "import", "Packages to import")
 	flags.Var(&sources, "src", "Sources to process for tests")
 	if err := flags.Parse(args); err != nil {
@@ -295,9 +301,10 @@ func genTestMain(args []string) error {
 	}
 
 	cases := Cases{
-		CoverFormat: *coverFormat,
-		CoverMode:   *coverMode,
-		Pkgname:     *pkgname,
+		CoverFormat:       *coverFormat,
+		CoverMode:         *coverMode,
+		Pkgname:           *pkgname,
+		SkippedTestsRegex: *skippedTestsRegex,
 	}
 
 	testFileSet := token.NewFileSet()

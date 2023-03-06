@@ -114,6 +114,7 @@ def _go_test_impl(ctx):
         "l_test=" + external_source.library.importpath,
     )
     arguments.add("-pkgname", internal_source.library.importpath)
+    arguments.add("-skipped_tests_regex", ctx.attr.skipped_tests_regex)
     arguments.add_all(go_srcs, before_each = "-src", format_each = "l=%s")
     ctx.actions.run(
         inputs = go_srcs,
@@ -192,6 +193,10 @@ def _go_test_impl(ctx):
 _go_test_kwargs = {
     "implementation": _go_test_impl,
     "attrs": {
+        "skipped_tests_regex": attr.string(
+            doc = """The regex to pass to '-test.skip'.
+            """,
+        ),
         "data": attr.label_list(
             allow_files = True,
             doc = """List of files needed by this rule at run-time. This may include data files
