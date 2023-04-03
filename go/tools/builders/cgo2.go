@@ -202,6 +202,7 @@ func cgo2(goenv *env, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSr
 	args = append(args, combinedLdFlags...)
 	var originalErrBuf bytes.Buffer
 	if err := goenv.runCommandToFile(os.Stdout, &originalErrBuf, args); err != nil {
+		fmt.Printf("Got error output: %s\n", originalErrBuf.String())
 		// If linking the binary for cgo fails, this is usually because the
 		// object files reference external symbols that can't be resolved yet.
 		// Since the binary is only produced to have its symbols read by the cgo
