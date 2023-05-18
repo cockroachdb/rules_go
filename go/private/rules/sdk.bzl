@@ -25,6 +25,7 @@ def _go_sdk_impl(ctx):
     return [GoSDK(
         goos = ctx.attr.goos,
         goarch = ctx.attr.goarch,
+        experiments = ctx.attr.experiments,
         root_file = ctx.file.root_file,
         package_list = package_list,
         libs = ctx.files.libs,
@@ -44,6 +45,10 @@ go_sdk = rule(
         "goarch": attr.string(
             mandatory = True,
             doc = "The host architecture the SDK was built for",
+        ),
+        "experiments": attr.string_list(
+            mandatory = False,
+            doc = "Go experiments to enable via GOEXPERIMENT",
         ),
         "root_file": attr.label(
             mandatory = True,

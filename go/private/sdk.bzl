@@ -31,7 +31,7 @@ def _go_host_sdk_impl(ctx):
     goroot = _detect_host_sdk(ctx)
     platform = _detect_sdk_platform(ctx, goroot)
     version = _detect_sdk_version(ctx, goroot)
-    _sdk_build_file(ctx, platform, version)
+    _sdk_build_file(ctx, platform, version, experiments = ctx.attr.experiments)
     _local_sdk(ctx, goroot)
 
 _go_host_sdk = repository_rule(
@@ -39,6 +39,9 @@ _go_host_sdk = repository_rule(
     environ = ["GOROOT"],
     attrs = {
         "version": attr.string(),
+        "experiments": attr.string_list(
+            doc = "Go experiments to enable via GOEXPERIMENT",
+        ),
     },
 )
 
@@ -112,7 +115,7 @@ def _go_download_sdk_impl(ctx):
     _remote_sdk(ctx, [url.format(filename) for url in ctx.attr.urls], ctx.attr.strip_prefix, sha256)
 
     detected_version = _detect_sdk_version(ctx, ".")
-    _sdk_build_file(ctx, platform, detected_version)
+    _sdk_build_file(ctx, platform, detected_version, experiments = ctx.attr.experiments)
 
     if not ctx.attr.sdks and not ctx.attr.version:
         # Returning this makes Bazel print a message that 'version' must be
@@ -134,6 +137,9 @@ _go_download_sdk = repository_rule(
         "goos": attr.string(),
         "goarch": attr.string(),
         "sdks": attr.string_list_dict(),
+        "experiments": attr.string_list(
+            doc = "Go experiments to enable via GOEXPERIMENT",
+        ),
         "urls": attr.string_list(default = ["https://dl.google.com/go/{}"]),
         "version": attr.string(),
         "strip_prefix": attr.string(default = "go"),
@@ -223,7 +229,7 @@ def _go_local_sdk_impl(ctx):
     goroot = ctx.attr.path
     platform = _detect_sdk_platform(ctx, goroot)
     version = _detect_sdk_version(ctx, goroot)
-    _sdk_build_file(ctx, platform, version)
+    _sdk_build_file(ctx, platform, version, ctx.attr.experiments)
     _local_sdk(ctx, goroot)
 
 _go_local_sdk = repository_rule(
@@ -231,6 +237,9 @@ _go_local_sdk = repository_rule(
     attrs = {
         "path": attr.string(),
         "version": attr.string(),
+        "experiments": attr.string_list(
+            doc = "Go experiments to enable via GOEXPERIMENT",
+        ),
     },
 )
 
@@ -263,7 +272,7 @@ def _go_wrap_sdk_impl(ctx):
     goroot = str(ctx.path(root_file).dirname)
     platform = _detect_sdk_platform(ctx, goroot)
     version = _detect_sdk_version(ctx, goroot)
-    _sdk_build_file(ctx, platform, version)
+    _sdk_build_file(ctx, platform, version, ctx.attr.experiments)
     _local_sdk(ctx, goroot)
 
 _go_wrap_sdk = repository_rule(
@@ -278,6 +287,9 @@ _go_wrap_sdk = repository_rule(
             doc = "A set of mappings from the host platform to a file in the SDK's root directory",
         ),
         "version": attr.string(),
+        "experiments": attr.string_list(
+            doc = "Go experiments to enable via GOEXPERIMENT",
+        ),
     },
 )
 
@@ -334,7 +346,7 @@ def _local_sdk(ctx, path):
     for entry in ["src", "pkg", "bin", "lib", "misc"]:
         ctx.symlink(path + "/" + entry, entry)
 
-def _sdk_build_file(ctx, platform, version):
+def _sdk_build_file(ctx, platform, version, experiments):
     ctx.file("ROOT")
     goos, _, goarch = platform.partition("_")
 
@@ -347,6 +359,7 @@ def _sdk_build_file(ctx, platform, version):
             "{goarch}": goarch,
             "{exe}": ".exe" if goos == "windows" else "",
             "{rules_go_repo_name}": "io_bazel_rules_go",
+            "{experiments}": repr(experiments),
         },
     )
 
@@ -427,7 +440,7 @@ def _detect_sdk_version(ctx, goroot):
     output_parts = result.stdout.split(" ")
     if len(output_parts) > 2 and output_parts[2].startswith("go"):
         version = output_parts[2][len("go"):]
-    if len(output_parts) > 3 and output_parts[2] == "devel" and output_parts[3].startswith("go"):
+    elif len(output_parts) > 3 and output_parts[2] == "devel" and output_parts[3].startswith("go"):
         version = output_parts[3][len("go"):]
     else:
         fail("Could not parse SDK version from '%s version' output: %s" % (go_binary_path, result.stdout))
@@ -519,7 +532,7 @@ def _version_string(v):
         v = v[:-1]
     return ".".join([str(n) for n in v]) + suffix
 
-def go_register_toolchains(version = None, nogo = None, go_version = None):
+def go_register_toolchains(version = None, nogo = None, go_version = None, experiments = None):
     """See /go/toolchains.rst#go-register-toolchains for full documentation."""
     if not version:
         version = go_version  # old name
@@ -537,7 +550,7 @@ def go_register_toolchains(version = None, nogo = None, go_version = None):
         if not version:
             fail('go_register_toolchains: version must be a string like "1.15.5" or "host"')
         elif version == "host":
-            go_host_sdk(name = "go_sdk")
+            go_host_sdk(name = "go_sdk", experiments = experiments)
         else:
             pv = _parse_version(version)
             if not pv:
@@ -547,6 +560,7 @@ def go_register_toolchains(version = None, nogo = None, go_version = None):
             go_download_sdk(
                 name = "go_sdk",
                 version = version,
+                experiments = experiments,
             )
 
     if nogo:
