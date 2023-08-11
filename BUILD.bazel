@@ -135,6 +135,7 @@ go_config(
         "//go/private:is_strip_sometimes_fastbuild": True,
         "//conditions:default": False,
     }),
+    testbuildonly = "//go/config:testbuildonly",
     visibility = ["//visibility:public"],
 )
 

@@ -79,3 +79,9 @@ string_list_flag(
     build_setting_default = [],
     visibility = ["//visibility:public"],
 )
+
+bool_flag(
+    name = "testbuildonly",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)

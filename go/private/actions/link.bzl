@@ -75,6 +75,22 @@ def emit_link(
     if executable == None:
         fail("executable is a required parameter")
 
+    if go.mode.testbuildonly and executable.basename.endswith("_test"):
+        inputs_transitive = [
+            archive.libs, archive.cgo_deps,
+            as_set(go.crosstool),
+            as_set(go.sdk.tools),
+            as_set(go.stdlib.libs),
+        ]
+        go.actions.run(
+            inputs = depset(direct = [go.sdk.package_list], transitive = inputs_transitive),
+            outputs = [executable],
+            mnemonic = "Touch",
+            executable = "/usr/bin/touch",
+            arguments = [executable.path],
+        )
+        return
+
     # Exclude -lstdc++ from link options. We don't want to link against it
     # unless we actually have some C++ code. _cgo_codegen will include it
     # in archives via CGO_LDFLAGS if it's needed.

@@ -836,6 +836,7 @@ def _go_config_impl(ctx):
         cover_format = ctx.attr.cover_format[BuildSettingInfo].value,
         gc_goopts = ctx.attr.gc_goopts[BuildSettingInfo].value,
         amd64 = ctx.attr.amd64,
+        testbuildonly = ctx.attr.testbuildonly[BuildSettingInfo].value,
     )]
 
 go_config = rule(
@@ -884,6 +885,10 @@ go_config = rule(
             providers = [BuildSettingInfo],
         ),
         "amd64": attr.string(),
+        "testbuildonly": attr.label(
+            mandatory = True,
+            providers = [BuildSettingInfo],
+        ),
     },
     provides = [GoConfigInfo],
     doc = """Collects information about build settings in the current
