@@ -80,7 +80,10 @@ filegroup(
         "bin/go*",
         "src/**",
         "pkg/**",
-    ]),
+    ]) + glob(
+        ["go.env*"],
+        allow_empty = True,
+    ),
 )
 
 exports_files(
