@@ -132,6 +132,18 @@ func Wrap(pkg string) error {
 	// will be killed by Bazel after the grace period (15s) expires.
 	signal.Ignore(syscall.SIGTERM)
 
+	secsString, ok := os.LookupEnv("TEST_TIMEOUT")
+	if ok {
+		timeoutSecs, err := strconv.Atoi(secsString)
+		if err != nil {
+			return fmt.Errorf("could not parse TEST_TIMEOUT string %s: got error %w", secsString, err)
+		}
+		mungedTimeoutSecs := timeoutSecs - 3
+		if mungedTimeoutSecs <= 0 {
+			mungedTimeoutSecs = timeoutSecs
+		}
+		args = append([]string{"-test.timeout", fmt.Sprintf("%ds", mungedTimeoutSecs)}, args...)
+	}
 	cmd := exec.Command(exePath, args...)
 	cmd.Env = append(os.Environ(), "GO_TEST_WRAP=0")
 	cmd.Stderr = io.MultiWriter(os.Stderr, streamMerger.ErrW)
