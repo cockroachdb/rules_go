@@ -486,7 +486,7 @@ func compileArchive(
 	}
 	var symabisPath string
 	if !haveCgo {
-		symabisPath, err = buildSymabisFile(goenv, srcs.sSrcs, srcs.hSrcs, asmHdrPath)
+		symabisPath, err = buildSymabisFile(goenv, packagePath, srcs.sSrcs, srcs.hSrcs, asmHdrPath)
 		if symabisPath != "" {
 			if !goenv.shouldPreserveWorkDir {
 				defer os.Remove(symabisPath)
