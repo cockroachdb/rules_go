@@ -169,8 +169,8 @@ func compileArchive(
 	packageListPath string,
 	outPath string,
 	outXPath string,
-	cgoExportHPath string) error {
-
+	cgoExportHPath string,
+) error {
 	workDir, cleanup, err := goenv.workDir()
 	if err != nil {
 		return err
@@ -293,7 +293,14 @@ func compileArchive(
 		// path. We use -trimpath to replace the root path with the correct prefix
 		// of the package path.
 		root := abs(".")
-		relSrcPath, err := filepath.Rel(root, srcs.goSrcs[0].filename)
+		srcFullPath := srcs.goSrcs[0].filename
+		for _, goSrc := range srcs.goSrcs {
+			if !strings.HasSuffix(goSrc.filename, ".pb.go") {
+				srcFullPath = goSrc.filename
+				break
+			}
+		}
+		relSrcPath, err := filepath.Rel(root, srcFullPath)
 		if err != nil {
 			return err
 		}
@@ -407,8 +414,8 @@ func compileArchive(
 	// Compile the .s files.
 	if len(srcs.sSrcs) > 0 {
 		includeSet := map[string]struct{}{
-			filepath.Join(os.Getenv("GOROOT"), "pkg", "include"): struct{}{},
-			workDir: struct{}{},
+			filepath.Join(os.Getenv("GOROOT"), "pkg", "include"): {},
+			workDir: {},
 		}
 		for _, hdr := range srcs.hSrcs {
 			includeSet[filepath.Dir(hdr.filename)] = struct{}{}
