@@ -348,12 +348,11 @@ func compileArchive(
 	// C files.
 	var objFiles []string
 	var goSrcsMapping []pathPair
-	if cgoEnabled && haveCgo {
-		// TODO(#2006): Compile .s and .S files with cgo2, not the Go assembler.
-		// If cgo is not enabled or we don't have other cgo sources, don't
-		// compile .S files.
+	if compilingWithCgo {
+		// If the package uses Cgo, compile .s and .S files with cgo2, not the Go assembler.
+		// Otherwise: the .s/.S files will be compiled with the Go assembler later
 		var srcDir string
-		srcDir, goSrcsMapping, objFiles, err = cgo2(goenv, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, nil, hSrcs, packagePath, packageName, cc, cppFlags, cFlags, cxxFlags, objcFlags, objcxxFlags, ldFlags, cgoExportHPath)
+		srcDir, goSrcsMapping, objFiles, err = cgo2(goenv, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSrcs, hSrcs, packagePath, packageName, cc, cppFlags, cFlags, cxxFlags, objcFlags, objcxxFlags, ldFlags, cgoExportHPath)
 		if err != nil {
 			return err
 		}
