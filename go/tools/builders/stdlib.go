@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"slices"
 )
 
 // stdlib builds the standard library in the appropriate mode into a new goroot.
@@ -154,6 +155,12 @@ You may need to use the flags --cpu=x64_windows --compiler=mingw-gcc.`)
 			break
 		}
 	}
+	// Remove -d=libfuzzer from gcflags when compiling stdlib. We only want our code to be instrumented.
+	// N.B. allowing this flag to pass may cause issues when linking external tools, e.g., protoc-bin, owing
+	// to unresolved symbols, i.e., libfuzzer_shim.go isn't included.
+	gcflags = slices.DeleteFunc(gcflags, func(s string) bool {
+		return s == "-d=libfuzzer"
+        })
 	installArgs = append(installArgs, "-gcflags="+allSlug+strings.Join(gcflags, " "))
 	installArgs = append(installArgs, "-ldflags="+allSlug+strings.Join(ldflags, " "))
 	installArgs = append(installArgs, "-asmflags="+allSlug+strings.Join(asmflags, " "))

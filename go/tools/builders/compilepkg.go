@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -342,6 +343,17 @@ func compileArchive(
 
 			cgoSrcs[i-len(goSrcs)] = coverSrc
 		}
+	}
+	if strings.Contains(outLinkObj, "external/") && slices.Contains(gcFlags, "-d=libfuzzer") {
+		// Remove -d=libfuzzer from gcFlags when compiling external packages. We don't really want to instrument them,
+		// and they may not link without libfuzzer_shim.go.
+		gcFlags = slices.DeleteFunc(gcFlags, func(s string) bool {
+			return s == "-d=libfuzzer"
+		})
+	}
+	// Log instrumented objs for ease of tracking/debugging.
+	if slices.Contains(gcFlags, "-d=libfuzzer") {
+		fmt.Printf("%s -- gcFlags=%s\n", outLinkObj, gcFlags)
 	}
 
 	// If we have cgo, generate separate C and go files, and compile the
