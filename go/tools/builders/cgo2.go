@@ -32,7 +32,7 @@ import (
 )
 
 // cgo2 processes a set of mixed source files with cgo.
-func cgo2(goenv *env, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSrcs, hSrcs []string, packagePath, packageName string, cc string, cppFlags, cFlags, cxxFlags, objcFlags, objcxxFlags, ldFlags []string, cgoExportHPath string, cgoGoSrcsPath string) (srcDir string, allGoSrcs, cObjs []string, err error) {
+func cgo2(goenv *env, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSrcs, hSrcs []string, packagePath, packageName string, cc string, cppFlags, cFlags, cxxFlags, objcFlags, objcxxFlags, ldFlags []string, cgoExportHPath string, cgoGoSrcsPath string) (srcDir string, allGoSrcs []pathPair, cObjs []string, err error) {
 	// Report an error if the C/C++ toolchain wasn't configured.
 	if cc == "" {
 		err := cgoError(cgoSrcs[:])
@@ -61,6 +61,9 @@ func cgo2(goenv *env, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSr
 	}
 	defer cleanup()
 
+	// generateCgoSources rewrites the elements of cgoSrcs in place, so keep
+	// the paths we were given for translating compiler output below.
+	inputCgoSrcs := append([]string(nil), cgoSrcs...)
 	gen, err := generateCgoSources(goenv, workDir, "cgo", cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, hSrcs, packagePath, cppFlags, cFlags, ldFlags, cgoExportHPath)
 	if err != nil {
 		return "", nil, nil, err
@@ -152,11 +155,23 @@ func cgo2(goenv *env, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSr
 		return "", nil, nil, err
 	}
 
-	allGoSrcs = make([]string, len(goSrcs)+len(gen.genGoSrcs))
+	// Pair each working path with the path the builder was given, so that
+	// compiler output can be translated back to paths the user recognizes.
+	// gen.genGoSrcs is laid out as [_cgo_gotypes.go, one .cgo1.go per
+	// cgoSrcs entry, _cgo_imports.go]; the first and last are generated
+	// and have no input path.
+	allGoSrcs = make([]pathPair, len(goSrcs)+len(gen.genGoSrcs))
 	for i := range goSrcs {
-		allGoSrcs[i] = filepath.Join(workDir, goBases[i])
+		allGoSrcs[i].inputPath = goSrcs[i]
+		allGoSrcs[i].workingPath = filepath.Join(workDir, goBases[i])
 	}
-	copy(allGoSrcs[len(goSrcs):], gen.genGoSrcs)
+	for i, src := range gen.genGoSrcs {
+		pair := &allGoSrcs[len(goSrcs)+i]
+		pair.workingPath = src
+		if i >= 1 && i <= len(inputCgoSrcs) {
+			pair.inputPath = inputCgoSrcs[i-1]
+		}
+	}
 	return workDir, allGoSrcs, cObjs, nil
 }
 
