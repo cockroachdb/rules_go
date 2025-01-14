@@ -477,8 +477,7 @@ def _go_binary_kwargs(go_cc_aspects = []):
                 </ul>
                 """,
             ),
-            "pgoprofile": attr.label(
-                allow_files = True,
+            "pgoprofile": attr.string(
                 doc = """Provides a pprof file to be used for profile guided optimization when compiling go targets.
                 A pprof file can also be provided via `--@io_bazel_rules_go//go/config:pgoprofile=<label of a pprof file>`.
                 Profile guided optimization is only supported on go 1.20+.
@@ -486,7 +485,7 @@ def _go_binary_kwargs(go_cc_aspects = []):
                 A profile that has already been converted this way is accepted as is.
                 See https://go.dev/doc/pgo for more information.
                 """,
-                default = "//go/config:empty",
+                default = "auto",
             ),
             "_go_context_data": attr.label(default = "//:go_context_data"),
             "_nogo": attr.label(
