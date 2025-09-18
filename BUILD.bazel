@@ -100,6 +100,7 @@ go_config(
     }),
     gc_goopts = "//go/config:gc_goopts",
     gc_linkopts = "//go/config:gc_linkopts",
+    gofips140 = "//go/config:gofips140",
     gotags = "//go/config:tags",
     linkmode = "//go/config:linkmode",
     msan = "//go/config:msan",

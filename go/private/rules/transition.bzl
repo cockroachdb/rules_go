@@ -38,6 +38,7 @@ TRANSITIONED_GO_SETTING_KEYS = [
     "//go/config:msan",
     "//go/config:race",
     "//go/config:pure",
+    "//go/config:gofips140",
     "//go/config:linkmode",
     "//go/config:tags",
     "//go/config:pgoprofile",
@@ -127,6 +128,10 @@ def _go_transition_impl(settings, attr):
     if tags:
         settings["//go/config:tags"] = _deduped_and_sorted(tags)
 
+    gofips140 = getattr(attr, "gofips140", "off")
+    if gofips140 != "off":
+        settings["//go/config:gofips140"] = gofips140
+
     linkmode = getattr(attr, "linkmode", "auto")
     if linkmode != "auto":
         if linkmode not in LINKMODES:
@@ -185,6 +190,7 @@ _common_reset_transition_dict = dict({
     "//go/config:msan": False,
     "//go/config:race": False,
     "//go/config:pure": False,
+    "//go/config:gofips140": "off",
     "//go/config:debug": False,
     "//go/config:linkmode": "auto",
     "//go/config:tags": [],
@@ -201,6 +207,7 @@ _stdlib_keep_keys = sorted([
     "//go/config:msan",
     "//go/config:race",
     "//go/config:pure",
+    "//go/config:gofips140",
     "//go/config:linkmode",
     "//go/config:tags",
     "//go/config:pgoprofile",
