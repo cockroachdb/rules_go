@@ -16,7 +16,7 @@
 # compatibility with --noincompatible_enable_proto_toolchain_resolution.
 
 load(
-    "@com_google_protobuf//bazel/common:proto_lang_toolchain_info.bzl",
+    "@rules_proto//proto:proto_common.bzl",
     "ProtoLangToolchainInfo",
 )
 load(
