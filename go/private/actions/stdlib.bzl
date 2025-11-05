@@ -82,6 +82,9 @@ def _stdlib_execution_requirements(go):
 def _build_env(go):
     env = go.env
 
+    if go.mode.gofips140 != "off":
+        env.update({"GOFIPS140": go.mode.gofips140})
+
     if go.mode.pure:
         env.update({"CGO_ENABLED": "0"})
         return env

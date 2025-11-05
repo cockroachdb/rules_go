@@ -211,6 +211,7 @@ def emit_link(
     if buildinfo_module_metadata:
         builder_args.add("-main_module_metadata", buildinfo_module_metadata)
     builder_args.add("-p", archive.data.importmap)
+    builder_args.add("-work", "-v")
     tool_args.add_all(gc_linkopts)
     tool_args.add_all(go.toolchain.flags.link)
 

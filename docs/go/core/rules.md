@@ -12,7 +12,6 @@
   [config_setting]: https://docs.bazel.build/versions/master/be/general.html#config_setting
   [data dependencies]: https://bazel.build/concepts/dependencies#data-dependencies
   [goarch]: /go/modes.rst#goarch
-  [gofips140]: /go/modes.rst#gofips140
   [goos]: /go/modes.rst#goos
   [mode attributes]: /go/modes.rst#mode-attributes
   [nogo]: /go/nogo.rst#nogo
@@ -60,7 +59,6 @@ sufficient to match the capabilities of the normal go tools.
 - [config_setting]
 - [data dependencies]
 - [goarch]
-- [gofips140]
 - [goos]
 - [mode attributes]
 - [nogo]
@@ -122,8 +120,8 @@ Rules
 load("@rules_go//docs/go/core:rules.bzl", "go_binary")
 
 go_binary(<a href="#go_binary-name">name</a>, <a href="#go_binary-deps">deps</a>, <a href="#go_binary-srcs">srcs</a>, <a href="#go_binary-data">data</a>, <a href="#go_binary-out">out</a>, <a href="#go_binary-basename">basename</a>, <a href="#go_binary-cdeps">cdeps</a>, <a href="#go_binary-cgo">cgo</a>, <a href="#go_binary-clinkopts">clinkopts</a>, <a href="#go_binary-copts">copts</a>, <a href="#go_binary-cppopts">cppopts</a>, <a href="#go_binary-cxxopts">cxxopts</a>,
-          <a href="#go_binary-embed">embed</a>, <a href="#go_binary-embedsrcs">embedsrcs</a>, <a href="#go_binary-env">env</a>, <a href="#go_binary-gc_goopts">gc_goopts</a>, <a href="#go_binary-gc_linkopts">gc_linkopts</a>, <a href="#go_binary-goarch">goarch</a>, <a href="#go_binary-gofips140">gofips140</a>, <a href="#go_binary-goos">goos</a>, <a href="#go_binary-gotags">gotags</a>, <a href="#go_binary-importpath">importpath</a>,
-          <a href="#go_binary-linkmode">linkmode</a>, <a href="#go_binary-msan">msan</a>, <a href="#go_binary-pgoprofile">pgoprofile</a>, <a href="#go_binary-pure">pure</a>, <a href="#go_binary-race">race</a>, <a href="#go_binary-static">static</a>, <a href="#go_binary-x_defs">x_defs</a>)
+          <a href="#go_binary-embed">embed</a>, <a href="#go_binary-embedsrcs">embedsrcs</a>, <a href="#go_binary-env">env</a>, <a href="#go_binary-gc_goopts">gc_goopts</a>, <a href="#go_binary-gc_linkopts">gc_linkopts</a>, <a href="#go_binary-goarch">goarch</a>, <a href="#go_binary-goos">goos</a>, <a href="#go_binary-gotags">gotags</a>, <a href="#go_binary-importpath">importpath</a>, <a href="#go_binary-linkmode">linkmode</a>,
+          <a href="#go_binary-msan">msan</a>, <a href="#go_binary-pgoprofile">pgoprofile</a>, <a href="#go_binary-pure">pure</a>, <a href="#go_binary-race">race</a>, <a href="#go_binary-static">static</a>, <a href="#go_binary-x_defs">x_defs</a>)
 </pre>
 
 This builds an executable from a set of source files,
@@ -158,7 +156,6 @@ which must all be in the `main` package. You can run the binary with
 | <a id="go_binary-gc_goopts"></a>gc_goopts |  List of flags to add to the Go compilation command when using the gc compiler. Subject to ["Make variable"] substitution and [Bourne shell tokenization].   | List of strings | optional |  `[]`  |
 | <a id="go_binary-gc_linkopts"></a>gc_linkopts |  List of flags to add to the Go link command when using the gc compiler. Subject to ["Make variable"] substitution and [Bourne shell tokenization].   | List of strings | optional |  `[]`  |
 | <a id="go_binary-goarch"></a>goarch |  Forces a binary to be cross-compiled for a specific architecture. It's usually better to control this on the command line with `--platforms`.<br><br>This disables cgo by default, since a cross-compiling C/C++ toolchain is rarely available. To force cgo, set `pure` = `off`.<br><br>See [Cross compilation] for more information.   | String | optional |  `"auto"`  |
-| <a id="go_binary-gofips140"></a>gofips140 |  Controls the GOFIPS140 environment variable. May be any string value. Common values include `"off"` (default), `"latest"`, and specific versions like `"v1.0.0"`. See [mode attributes], specifically [gofips140].   | String | optional |  `"off"`  |
 | <a id="go_binary-goos"></a>goos |  Forces a binary to be cross-compiled for a specific operating system. It's usually better to control this on the command line with `--platforms`.<br><br>This disables cgo by default, since a cross-compiling C/C++ toolchain is rarely available. To force cgo, set `pure` = `off`.<br><br>See [Cross compilation] for more information.   | String | optional |  `"auto"`  |
 | <a id="go_binary-gotags"></a>gotags |  Enables a list of build tags when evaluating [build constraints]. Useful for conditional compilation.   | List of strings | optional |  `[]`  |
 | <a id="go_binary-importpath"></a>importpath |  The import path of this binary. Binaries can't actually be imported, but this may be used by [go_path] and other tools to report the location of source files. This may be inferred from embedded libraries.   | String | optional |  `""`  |
@@ -353,8 +350,8 @@ This is used as a way of easily declaring a common set of sources re-used in mul
 load("@rules_go//docs/go/core:rules.bzl", "go_test")
 
 go_test(<a href="#go_test-name">name</a>, <a href="#go_test-deps">deps</a>, <a href="#go_test-srcs">srcs</a>, <a href="#go_test-data">data</a>, <a href="#go_test-cdeps">cdeps</a>, <a href="#go_test-cgo">cgo</a>, <a href="#go_test-clinkopts">clinkopts</a>, <a href="#go_test-copts">copts</a>, <a href="#go_test-cppopts">cppopts</a>, <a href="#go_test-cxxopts">cxxopts</a>, <a href="#go_test-embed">embed</a>, <a href="#go_test-embedsrcs">embedsrcs</a>,
-        <a href="#go_test-env">env</a>, <a href="#go_test-env_inherit">env_inherit</a>, <a href="#go_test-gc_goopts">gc_goopts</a>, <a href="#go_test-gc_linkopts">gc_linkopts</a>, <a href="#go_test-goarch">goarch</a>, <a href="#go_test-gofips140">gofips140</a>, <a href="#go_test-goos">goos</a>, <a href="#go_test-gotags">gotags</a>, <a href="#go_test-importpath">importpath</a>,
-        <a href="#go_test-linkmode">linkmode</a>, <a href="#go_test-msan">msan</a>, <a href="#go_test-pure">pure</a>, <a href="#go_test-race">race</a>, <a href="#go_test-rundir">rundir</a>, <a href="#go_test-static">static</a>, <a href="#go_test-x_defs">x_defs</a>)
+        <a href="#go_test-env">env</a>, <a href="#go_test-env_inherit">env_inherit</a>, <a href="#go_test-gc_goopts">gc_goopts</a>, <a href="#go_test-gc_linkopts">gc_linkopts</a>, <a href="#go_test-goarch">goarch</a>, <a href="#go_test-goos">goos</a>, <a href="#go_test-gotags">gotags</a>, <a href="#go_test-importpath">importpath</a>, <a href="#go_test-linkmode">linkmode</a>, <a href="#go_test-msan">msan</a>,
+        <a href="#go_test-pure">pure</a>, <a href="#go_test-race">race</a>, <a href="#go_test-rundir">rundir</a>, <a href="#go_test-static">static</a>, <a href="#go_test-x_defs">x_defs</a>)
 </pre>
 
 This builds a set of tests that can be run with `bazel test`.
@@ -416,7 +413,6 @@ sources.
 | <a id="go_test-gc_goopts"></a>gc_goopts |  List of flags to add to the Go compilation command when using the gc compiler. Subject to ["Make variable"] substitution and [Bourne shell tokenization].   | List of strings | optional |  `[]`  |
 | <a id="go_test-gc_linkopts"></a>gc_linkopts |  List of flags to add to the Go link command when using the gc compiler. Subject to ["Make variable"] substitution and [Bourne shell tokenization].   | List of strings | optional |  `[]`  |
 | <a id="go_test-goarch"></a>goarch |  Forces a binary to be cross-compiled for a specific architecture. It's usually better to control this on the command line with `--platforms`.<br><br>This disables cgo by default, since a cross-compiling C/C++ toolchain is rarely available. To force cgo, set `pure` = `off`.<br><br>See [Cross compilation] for more information.   | String | optional |  `"auto"`  |
-| <a id="go_test-gofips140"></a>gofips140 |  Controls the GOFIPS140 environment variable. May be any string value. Common values include `"off"` (default), `"latest"`, and specific versions like `"v1.0.0"`. See [mode attributes], specifically [gofips140].   | String | optional |  `"off"`  |
 | <a id="go_test-goos"></a>goos |  Forces a binary to be cross-compiled for a specific operating system. It's usually better to control this on the command line with `--platforms`.<br><br>This disables cgo by default, since a cross-compiling C/C++ toolchain is rarely available. To force cgo, set `pure` = `off`.<br><br>See [Cross compilation] for more information.   | String | optional |  `"auto"`  |
 | <a id="go_test-gotags"></a>gotags |  Enables a list of build tags when evaluating [build constraints]. Useful for conditional compilation.   | List of strings | optional |  `[]`  |
 | <a id="go_test-importpath"></a>importpath |  The import path of this test. Tests can't actually be imported, but this may be used by [go_path] and other tools to report the location of source files. This may be inferred from embedded libraries.   | String | optional |  `""`  |

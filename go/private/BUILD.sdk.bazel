@@ -24,7 +24,10 @@ filegroup(
 filegroup(
     name = "srcs",
     srcs = glob(
-        ["src/**/*"],
+        [
+            "lib/fips140/**",
+            "src/**/*",
+        ],
         allow_empty = True,
         exclude = STDLIB_SRCS_EXCLUDE,
     ),
