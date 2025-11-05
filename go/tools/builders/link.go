@@ -150,6 +150,11 @@ func link(args []string) error {
 		}
 	}
 
+	gofips140 := os.Getenv("GOFIPS140")
+	if gofips140 != "off" {
+		goargs = append(goargs, "-X", "runtime.godebugDefault=fips140=on")
+	}
+
 	if *buildmode != "" {
 		goargs = append(goargs, "-buildmode", *buildmode)
 	}

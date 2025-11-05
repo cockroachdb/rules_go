@@ -24,7 +24,10 @@ filegroup(
 filegroup(
     name = "srcs",
     srcs = glob(
-        ["src/**/*"],
+        [
+            "lib/fips140/**",
+            "src/**/*",
+        ],
         exclude = [
             "src/**/*_test.go",
             "src/**/testdata/**",

@@ -59,6 +59,7 @@ def _should_use_sdk_stdlib(go):
             not go.mode.race and  # TODO(jayconrod): use precompiled race
             not go.mode.msan and
             not go.mode.pure and
+            go.mode.gofips140 == "off" and
             not go.mode.gc_goopts and
             go.mode.linkmode == LINKMODE_NORMAL)
 
@@ -92,6 +93,9 @@ def _build_stdlib_list_json(go):
 
 def _build_env(go):
     env = go.env
+
+    if go.mode.gofips140 != "off":
+        env.update({"GOFIPS140": go.mode.gofips140})
 
     if go.mode.pure:
         env.update({"CGO_ENABLED": "0"})

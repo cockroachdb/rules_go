@@ -58,7 +58,7 @@ You may need to use the flags --cpu=x64_windows --compiler=mingw-gcc.`)
 	}
 
 	// Link in the bare minimum needed to the new GOROOT
-	if err := replicate(goroot, output, replicatePaths("src", "pkg/tool", "pkg/include")); err != nil {
+	if err := replicate(goroot, output, replicatePaths("src", "pkg/tool", "pkg/include", "lib")); err != nil {
 		return err
 	}
 
@@ -75,6 +75,10 @@ You may need to use the flags --cpu=x64_windows --compiler=mingw-gcc.`)
 	cachePath := filepath.Join(output, ".gocache")
 	os.Setenv("GOCACHE", cachePath)
 	defer os.RemoveAll(cachePath)
+	// Create a temporary modcache directory.
+	modCachePath := filepath.Join(output, ".gomodcache")
+	os.Setenv("GOMODCACHE", modCachePath)
+	defer os.RemoveAll(modCachePath)
 
 	// Disable modules for the 'go install' command. Depending on the sandboxing
 	// mode, there may be a go.mod file in a parent directory which will turn
