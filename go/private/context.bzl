@@ -713,6 +713,9 @@ def go_context(
     if mode.arm:
         env["GOARM"] = mode.arm
 
+    if mode.gofips140 != "off":
+        env["GOFIPS140"] = mode.gofips140
+
     if cgo_context_info:
         env.update(cgo_context_info.env)
         cgo_tools = cgo_context_info.cgo_tools

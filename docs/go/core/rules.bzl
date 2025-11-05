@@ -11,7 +11,6 @@
   [config_setting]: https://docs.bazel.build/versions/master/be/general.html#config_setting
   [data dependencies]: https://bazel.build/concepts/dependencies#data-dependencies
   [goarch]: /go/modes.rst#goarch
-  [gofips140]: /go/modes.rst#gofips140
   [goos]: /go/modes.rst#goos
   [mode attributes]: /go/modes.rst#mode-attributes
   [nogo]: /go/nogo.rst#nogo
@@ -59,7 +58,6 @@ sufficient to match the capabilities of the normal go tools.
 - [config_setting]
 - [data dependencies]
 - [goarch]
-- [gofips140]
 - [goos]
 - [mode attributes]
 - [nogo]

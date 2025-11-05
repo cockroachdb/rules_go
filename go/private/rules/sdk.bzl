@@ -35,6 +35,7 @@ def _go_sdk_impl(ctx):
         GoSDK(
             goos = ctx.attr.goos,
             goarch = ctx.attr.goarch,
+            gofips140 = ctx.attr.gofips140,
             experiments = ",".join(ctx.attr.experiments),
             root_file = ctx.file.root_file,
             package_list = package_list,
@@ -57,6 +58,13 @@ go_sdk = rule(
         "goarch": attr.string(
             mandatory = True,
             doc = "The host architecture the SDK was built for",
+        ),
+        "gofips140": attr.string(
+            default = "off",
+            doc = """Controls the GOFIPS140 environment variable. May be any string value.
+            Common values include `"off"` (default), `"latest"`, and specific versions like `"v1.0.0"`.
+            See [mode attributes], specifically [gofips140].
+            """,
         ),
         "experiments": attr.string_list(
             mandatory = False,
