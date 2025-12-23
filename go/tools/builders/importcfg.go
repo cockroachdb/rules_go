@@ -92,6 +92,8 @@ func checkImports(files []fileInfo, archives []archive, stdPackageListPath strin
 			}
 			if stdPkgs[path] {
 				imports[path] = nil
+			} else if isFipsVersionedStdPkg(path, stdPkgs) {
+				imports[path] = nil
 			} else if arc := importToArchive[path]; arc != nil {
 				imports[path] = arc
 			} else if arc := importAliasToArchive[path]; arc != nil {
@@ -177,6 +179,14 @@ func buildImportcfgFileForLink(archives []archive, stdPackageListPath, installSu
 	if err := scanner.Err(); err != nil {
 		return "", err
 	}
+
+	// When GOFIPS140 is set, Go creates versioned FIPS packages under
+	// crypto/internal/fips140/v1.0.0-hash/. These packages are not in
+	// packages.txt (which is generated from source directories), so we
+	// need to discover them by scanning the stdlib directory.
+	if err := discoverFipsVersionedPackages(buf, prefix); err != nil {
+		return "", err
+	}
 	depsSeen := map[string]string{}
 	for _, arc := range archives {
 		if prevLabel, ok := depsSeen[arc.packagePath]; ok {
@@ -244,6 +254,117 @@ func (e depsError) Error() string {
 
 func isRelative(path string) bool {
 	return strings.HasPrefix(path, "./") || strings.HasPrefix(path, "../")
+}
+
+// isFipsVersionedStdPkg checks if the import path is a FIPS-versioned
+// standard library package. When GOFIPS140 is set, Go rewrites paths like
+// crypto/internal/fips140/aes to crypto/internal/fips140/v1.0.0-hash/aes.
+// This function checks if the path matches that pattern and if the
+// corresponding non-versioned path exists in the standard library.
+func isFipsVersionedStdPkg(path string, stdPkgs map[string]bool) bool {
+	const fipsPrefix = "crypto/internal/fips140/"
+	if !strings.HasPrefix(path, fipsPrefix) {
+		return false
+	}
+	suffix := path[len(fipsPrefix):]
+
+	// Check if this is just the versioned module itself (e.g., crypto/internal/fips140/v1.0.0-hash)
+	// This is a valid package when GOFIPS140 is set
+	if strings.HasPrefix(suffix, "v") && strings.Contains(suffix, "-") && !strings.Contains(suffix, "/") {
+		return true
+	}
+
+	// Check if there's a version component followed by a sub-package (v1.x.x-hash/subpkg)
+	idx := strings.Index(suffix, "/")
+	if idx <= 0 {
+		return false
+	}
+	versionPart := suffix[:idx]
+	// Version parts look like "v1.0.0-c2097c7c" - starts with v, contains a dash
+	if !strings.HasPrefix(versionPart, "v") || !strings.Contains(versionPart, "-") {
+		return false
+	}
+	// Reconstruct the non-versioned path and check if it's in stdPkgs
+	basePath := fipsPrefix + suffix[idx+1:]
+	return stdPkgs[basePath]
+}
+
+// discoverFipsVersionedPackages scans the stdlib pkg directory for
+// FIPS-versioned packages (crypto/internal/fips140/v1.0.0-hash/*)
+// and adds them to the importcfg buffer. These packages are created
+// when GOFIPS140 is set but are not listed in packages.txt.
+func discoverFipsVersionedPackages(buf *bytes.Buffer, prefix string) error {
+	// Look for crypto/internal/fips140/v* directories and .a files
+	fipsDir := filepath.Join(prefix, "crypto", "internal", "fips140")
+	entries, err := os.ReadDir(fipsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No fips140 directory, nothing to do
+			return nil
+		}
+		return err
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+
+		// Check for versioned .a files at this level (e.g., v1.0.0-c2097c7c.a)
+		if !entry.IsDir() && strings.HasSuffix(name, ".a") {
+			baseName := strings.TrimSuffix(name, ".a")
+			if strings.HasPrefix(baseName, "v") && strings.Contains(baseName, "-") {
+				// This is a versioned FIPS package archive
+				fullPath := filepath.Join(fipsDir, name)
+				importPath := "crypto/internal/fips140/" + baseName
+				fmt.Fprintf(buf, "packagefile %s=%s\n", importPath, fullPath)
+			}
+			continue
+		}
+
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Look for versioned directories like "v1.0.0-c2097c7c"
+		if !strings.HasPrefix(name, "v") || !strings.Contains(name, "-") {
+			continue
+		}
+		// Found a versioned FIPS directory, scan for .a files
+		versionedDir := filepath.Join(fipsDir, name)
+		if err := discoverPackagesInDir(buf, prefix, versionedDir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// discoverPackagesInDir recursively scans a directory for .a files
+// and adds them to the importcfg buffer.
+func discoverPackagesInDir(buf *bytes.Buffer, prefix, dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		fullPath := filepath.Join(dir, entry.Name())
+		if entry.IsDir() {
+			if err := discoverPackagesInDir(buf, prefix, fullPath); err != nil {
+				return err
+			}
+		} else if strings.HasSuffix(entry.Name(), ".a") {
+			// Convert file path to import path
+			// e.g., prefix/crypto/internal/fips140/v1.0.0-hash/aes.a
+			//    -> crypto/internal/fips140/v1.0.0-hash/aes
+			relPath, err := filepath.Rel(prefix, fullPath)
+			if err != nil {
+				return err
+			}
+			// Remove .a suffix and convert to forward slashes
+			importPath := strings.TrimSuffix(filepath.ToSlash(relPath), ".a")
+			fmt.Fprintf(buf, "packagefile %s=%s\n", importPath, fullPath)
+		}
+	}
+	return nil
 }
 
 type archiveMultiFlag []archive
