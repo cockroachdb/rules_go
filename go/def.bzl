@@ -48,6 +48,10 @@ load(
     _go_cross_binary = "go_cross_binary",
 )
 load(
+    "//go/private/rules:gosim_binary.bzl",
+    _gosim_go_binary = "gosim_go_binary",
+)
+load(
     "//go/private/rules:library.bzl",
     _go_library = "go_library",
     _go_tool_library = "go_tool_library",
@@ -171,6 +175,9 @@ go_library = _go_library
 
 # See docs/go/core/rules.md#go_binary for full documentation.
 go_binary = _go_binary_macro
+
+# Experimental deterministic binary rule backed by Gosim.
+gosim_go_binary = _gosim_go_binary
 
 # See docs/go/core/rules.md#go_test for full documentation.
 go_test = _go_test

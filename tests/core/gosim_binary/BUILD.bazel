@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "gosim_go_binary")
+
+go_binary(
+    name = "fake_gosim_builder",
+    srcs = ["fake_gosim_builder.go"],
+    pure = "on",
+)
+
+gosim_go_binary(
+    name = "hello_gosim",
+    srcs = ["hello.go"],
+    gosim_tool = ":fake_gosim_builder",
+)
+
+sh_test(
+    name = "gosim_binary_test",
+    srcs = ["gosim_binary_test.sh"],
+    data = [":hello_gosim"],
+)

@@ -47,6 +47,19 @@ bzl_library(
 )
 
 bzl_library(
+    name = "gosim_binary",
+    srcs = ["gosim_binary.bzl"],
+    visibility = ["//go:__subpackages__"],
+    deps = [
+        "@bazel_skylib//lib:paths",
+        "//go/private:common",
+        "//go/private:providers",
+        "//go/private/rules:transition",
+        "//go/private/rules:wrappers",
+    ],
+)
+
+bzl_library(
     name = "cgo",
     srcs = ["cgo.bzl"],
     visibility = ["//go:__subpackages__"],
