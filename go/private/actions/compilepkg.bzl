@@ -41,9 +41,13 @@ def _facts(v):
     )
 
 def _embedroot_arg(src):
+    if src.is_directory:
+        return src.path
     return src.root.path
 
 def _embedlookupdir_arg(src):
+    if src.is_directory:
+        return "."
     root_relative = src.dirname[len(src.root.path):]
     if root_relative.startswith("/"):
         root_relative = root_relative[1:]

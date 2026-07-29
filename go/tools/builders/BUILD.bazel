@@ -80,6 +80,18 @@ go_test(
     ],
 )
 
+go_test(
+    name = "embedcfg_test",
+    size = "small",
+    srcs = [
+        "embedcfg.go",
+        "embedcfg_test.go",
+        "filter.go",
+        "read.go",
+    ],
+    pure = "on",
+)
+
 filegroup(
     name = "builder_srcs",
     srcs = [

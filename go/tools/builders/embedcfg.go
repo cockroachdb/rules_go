@@ -122,13 +122,16 @@ func buildEmbedcfgFile(goSrcs []fileInfo, embedSrcs, embedRootDirs []string, wor
 // file path p. If there is no such string, findInRootDirs returns "".
 func findInRootDirs(p string, rootDirs []string) string {
 	dir := filepath.Dir(p)
+	best := ""
 	for _, rootDir := range rootDirs {
 		if rootDir == dir ||
 			(strings.HasPrefix(dir, rootDir) && len(dir) > len(rootDir)+1 && dir[len(rootDir)] == filepath.Separator) {
-			return rootDir
+			if len(rootDir) > len(best) {
+				best = rootDir
+			}
 		}
 	}
-	return ""
+	return best
 }
 
 // embedNode represents an embeddable file or directory in a tree.

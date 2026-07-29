@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "gosim_go_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "gosim_go_binary")
 
 go_binary(
     name = "fake_gosim_builder",
@@ -6,10 +6,35 @@ go_binary(
     pure = "on",
 )
 
+go_library(
+    name = "cgohelper",
+    srcs = ["cgohelper.go"],
+    importpath = "example.com/gosim/cgohelper",
+)
+
+go_library(
+    name = "cgolib",
+    srcs = ["cgolib.go"],
+    cgo = True,
+    importpath = "example.com/gosim/cgolib",
+    deps = [":cgohelper"],
+)
+
 gosim_go_binary(
     name = "hello_gosim",
     srcs = ["hello.go"],
+    embedsrcs = ["message.txt"],
     gosim_tool = ":fake_gosim_builder",
+    pure = "on",
+)
+
+gosim_go_binary(
+    name = "hello_cgo_gosim",
+    srcs = ["hello_cgo.go"],
+    gosim_tool = ":fake_gosim_builder",
+    pure = "off",
+    tags = ["manual"],
+    deps = [":cgolib"],
 )
 
 sh_test(
