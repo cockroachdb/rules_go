@@ -115,15 +115,15 @@ func (pr *PackageRegistry) ResolveImports(overlays map[string][]byte) error {
 			continue
 		}
 		if external != nil {
-			// MoveTestFiles copied the internal package's imports, and rules_go
+			// MoveTestFiles copied the internal package's imports. The external
+			// archive's are the ones this package was compiled with: rules_go
 			// drops from the internal archive every dependency that would form
-			// a cycle through the library under test (_recompile_external_deps
-			// in test.bzl), so an import only the external test files use can
-			// be missing there. The external archive's own imports have it.
+			// a cycle through the library under test, and the external archive
+			// imports those as variants recompiled against the internal archive
+			// (_recompile_external_deps in test.bzl), which the aspect writes
+			// as packages of their own.
 			for path, imp := range external.Imports {
-				if _, ok := testPkg.Imports[path]; !ok {
-					testPkg.Imports[path] = imp
-				}
+				testPkg.Imports[path] = imp
 			}
 			testPkg.ExportFile = external.ExportFile
 		}
