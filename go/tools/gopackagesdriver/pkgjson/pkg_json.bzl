@@ -3,7 +3,7 @@ load(
     "paths",
 )
 
-def write_pkg_json(ctx, pkg_json_tool, archive, pkg_json, pkg_id = None):
+def write_pkg_json(ctx, pkg_json_tool, archive, pkg_json, pkg_id = None, imports = None):
     """Writes the go/packages JSON for archive to pkg_json.
 
     Args:
@@ -14,12 +14,16 @@ def write_pkg_json(ctx, pkg_json_tool, archive, pkg_json, pkg_id = None):
       pkg_id: the package ID; defaults to the archive's label. A go_test's
         external test archive shares the test's label with the internal one
         and is written under the label plus "_xtest".
+      imports: the package's imports, import path to package ID; defaults to
+        the labels of the archive's direct dependencies. A go_test's external
+        archive and its recompiled dependencies import the recompiled variants
+        of their dependencies, which have IDs of their own.
     """
     args = ctx.actions.args()
     inputs = [src for src in archive.data.srcs if src.path.endswith(".go")]
 
     tmp_json = ctx.actions.declare_file(pkg_json.path + ".tmp")
-    pkg_info = _go_archive_to_pkg(archive, pkg_id)
+    pkg_info = _go_archive_to_pkg(archive, pkg_id, imports)
     ctx.actions.write(tmp_json, content = json.encode(pkg_info))
     inputs.append(tmp_json)
     args.add("--pkg_json", tmp_json.path)
@@ -48,12 +52,17 @@ def file_path(f):
 def is_file_external(f):
     return f.owner.workspace_root != ""
 
-def _go_archive_to_pkg(archive, pkg_id = None):
+def _go_archive_to_pkg(archive, pkg_id = None, imports = None):
     go_files = [
         file_path(src)
         for src in archive.data.srcs
         if src.path.endswith(".go")
     ]
+    if imports == None:
+        imports = {
+            pkg.data.importpath: str(pkg.data.label)
+            for pkg in archive.direct
+        }
     return struct(
         ID = pkg_id or str(archive.data.label),
         PkgPath = archive.data.importpath,
@@ -65,8 +74,5 @@ def _go_archive_to_pkg(archive, pkg_id = None):
             for src in archive.data.srcs
             if not src.path.endswith(".go")
         ],
-        Imports = {
-            pkg.data.importpath: str(pkg.data.label)
-            for pkg in archive.direct
-        },
+        Imports = imports,
     )

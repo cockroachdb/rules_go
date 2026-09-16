@@ -51,10 +51,29 @@ def file_path(f):
 #
 # This function was created to avoid breaking the signature of make_pkg_json
 # and avoid adding an explicit field for cgo output files in the pkg.json.
-def make_pkg_json_with_archive(ctx, name, archive, pkg_id = None):
+def make_pkg_json_with_archive(ctx, name, archive, pkg_id = None, imports = None):
     pkg_json_file = ctx.actions.declare_file(name + ".pkg.json")
-    write_pkg_json(ctx, ctx.executable._pkgjson, archive, pkg_json_file, pkg_id)
+    write_pkg_json(ctx, ctx.executable._pkgjson, archive, pkg_json_file, pkg_id, imports)
     return pkg_json_file
+
+# A go_test recompiles every dependency of its external test archive that
+# transitively imports the library under test, against the internal test
+# archive instead of the library (_recompile_external_deps in test.bzl), the
+# way `go test` builds "foo [foo.test]" variants. Those archives are packages
+# of their own to go/packages: their export data was compiled against the
+# internal archive, and a consumer that keys types by import path must see
+# exactly one version of the library under test in the external test
+# package's dependency graph. They get the test's label appended to their ID.
+def _is_recompiled(dep_archive, test_label):
+    return dep_archive.data.label != test_label and ".recompile" in dep_archive.data.file.basename
+
+def _dep_pkg_id(dep_archive, test_label):
+    if _is_recompiled(dep_archive, test_label):
+        return "%s [%s]" % (dep_archive.data.label, test_label)
+    return str(dep_archive.data.label)
+
+def _dep_imports(dep_archive, test_label):
+    return {dep.data.importpath: _dep_pkg_id(dep, test_label) for dep in dep_archive.direct}
 
 # deprecated: use make_pkg_json_with_archive instead
 def make_pkg_json(ctx, name, pkg_info):
@@ -114,15 +133,43 @@ def _go_pkg_info_aspect_impl(target, ctx):
             # under test (_recompile_external_deps). So the external archive is
             # written too, under the ID the driver gives that package, for its
             # imports.
-            test_archives = [a for a in archive.direct if a.data.label == archive.data.label]
+            test_label = archive.data.label
+            test_archives = [a for a in archive.direct if a.data.label == test_label]
+            recompiled = []
             for dep_archive in test_archives:
                 is_external = any([dep_archive.data.name == a.data.name + "_test" for a in test_archives])
-                pkg_id = str(dep_archive.data.label) + ("_xtest" if is_external else "")
-                pkg_json_files.append(make_pkg_json_with_archive(ctx, dep_archive.data.name, dep_archive, pkg_id))
+                pkg_id = str(test_label) + ("_xtest" if is_external else "")
+                imports = _dep_imports(dep_archive, test_label) if is_external else None
+                pkg_json_files.append(make_pkg_json_with_archive(ctx, dep_archive.data.name, dep_archive, pkg_id, imports))
                 compiled_go_files.extend(dep_archive.source.srcs)
                 if dep_archive.data.cgo_out_dir:
                     compiled_go_files.append(dep_archive.data.cgo_out_dir)
                 export_files.append(dep_archive.data.export_file)
+                if is_external:
+                    recompiled.extend(dep_archive.direct)
+
+            # The recompiled dependencies of the external archive (see
+            # _is_recompiled). A dependency that was not recompiled does not
+            # reach the library under test, so neither does anything below it,
+            # and the walk stops there. Starlark has no recursion; the loop
+            # bound only has to exceed the number of recompiled archives.
+            seen = {}
+            for _ in range(100000):
+                if not recompiled:
+                    break
+                dep_archive = recompiled.pop()
+                if not _is_recompiled(dep_archive, test_label):
+                    continue
+                pkg_id = _dep_pkg_id(dep_archive, test_label)
+                if pkg_id in seen:
+                    continue
+                seen[pkg_id] = True
+                name = "%s.%s" % (test_label.name, dep_archive.data.file.basename)
+                pkg_json_files.append(make_pkg_json_with_archive(ctx, name, dep_archive, pkg_id, _dep_imports(dep_archive, test_label)))
+                if dep_archive.data.cgo_out_dir:
+                    compiled_go_files.append(dep_archive.data.cgo_out_dir)
+                export_files.append(dep_archive.data.export_file)
+                recompiled.extend(dep_archive.direct)
 
     # If there was no stdlib json in any dependencies, fetch it from the
     # current go_ node.
