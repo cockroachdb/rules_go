@@ -3,12 +3,23 @@ load(
     "paths",
 )
 
-def write_pkg_json(ctx, pkg_json_tool, archive, pkg_json):
+def write_pkg_json(ctx, pkg_json_tool, archive, pkg_json, pkg_id = None):
+    """Writes the go/packages JSON for archive to pkg_json.
+
+    Args:
+      ctx: the aspect context.
+      pkg_json_tool: the pkgjson executable, which fills in cgo-generated files.
+      archive: the GoArchive to describe.
+      pkg_json: the output file.
+      pkg_id: the package ID; defaults to the archive's label. A go_test's
+        external test archive shares the test's label with the internal one
+        and is written under the label plus "_xtest".
+    """
     args = ctx.actions.args()
     inputs = [src for src in archive.data.srcs if src.path.endswith(".go")]
 
     tmp_json = ctx.actions.declare_file(pkg_json.path + ".tmp")
-    pkg_info = _go_archive_to_pkg(archive)
+    pkg_info = _go_archive_to_pkg(archive, pkg_id)
     ctx.actions.write(tmp_json, content = json.encode(pkg_info))
     inputs.append(tmp_json)
     args.add("--pkg_json", tmp_json.path)
@@ -37,14 +48,14 @@ def file_path(f):
 def is_file_external(f):
     return f.owner.workspace_root != ""
 
-def _go_archive_to_pkg(archive):
+def _go_archive_to_pkg(archive, pkg_id = None):
     go_files = [
         file_path(src)
         for src in archive.data.srcs
         if src.path.endswith(".go")
     ]
     return struct(
-        ID = str(archive.data.label),
+        ID = pkg_id or str(archive.data.label),
         PkgPath = archive.data.importpath,
         ExportFile = file_path(archive.data.export_file),
         GoFiles = go_files,
