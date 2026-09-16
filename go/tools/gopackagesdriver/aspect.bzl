@@ -115,13 +115,17 @@ def _go_pkg_info_aspect_impl(target, ctx):
 
     if GoArchive in target:
         archive = target[GoArchive]
-        compiled_go_files.extend(archive.source.srcs)
-        if archive.data.cgo_out_dir:
-            compiled_go_files.append(archive.data.cgo_out_dir)
-        export_files.append(archive.data.export_file)
-        pkg_json_files.append(make_pkg_json_with_archive(ctx, archive.data.name, archive))
-
-        if ctx.rule.kind == "go_test":
+        if ctx.rule.kind != "go_test":
+            compiled_go_files.extend(archive.source.srcs)
+            if archive.data.cgo_out_dir:
+                compiled_go_files.append(archive.data.cgo_out_dir)
+            export_files.append(archive.data.export_file)
+            pkg_json_files.append(make_pkg_json_with_archive(ctx, archive.data.name, archive))
+        else:
+            # A go_test's own archive is the generated test main: of no use to
+            # go/packages, and labelled like the internal archive below, so
+            # writing it too made two packages claim one ID and left the
+            # driver with whichever JSON it read last.
             # A go_test compiles two archives under the test's own label: the
             # internal one, the library plus its in-package test files, and
             # the external one, the "<package>_test" test files, which imports
