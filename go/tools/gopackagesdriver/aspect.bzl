@@ -100,9 +100,21 @@ def _go_pkg_info_aspect_impl(target, ctx):
         for dep in deps:
             if GoPkgInfo in dep:
                 pkg_info = dep[GoPkgInfo]
-                transitive_json_files.append(pkg_info.pkg_json_files)
-                transitive_compiled_go_files.append(pkg_info.compiled_go_files)
-                transitive_export_files.append(pkg_info.export_files)
+                if attr == "embed":
+                    # An embedded library's sources are compiled into this
+                    # target's archive, which is the package go/packages sees;
+                    # its own archive is imported by nothing, and may not even
+                    # build: a go_proto_library embedded into the go_library
+                    # that defines the types its generated code refers to
+                    # fails on its own. Take what it collected from its
+                    # dependencies, but do not ask for its archive.
+                    transitive_json_files.append(pkg_info.transitive_pkg_json_files)
+                    transitive_compiled_go_files.append(pkg_info.transitive_compiled_go_files)
+                    transitive_export_files.append(pkg_info.transitive_export_files)
+                else:
+                    transitive_json_files.append(pkg_info.pkg_json_files)
+                    transitive_compiled_go_files.append(pkg_info.compiled_go_files)
+                    transitive_export_files.append(pkg_info.export_files)
 
                 # Fetch the stdlib json from the first dependency
                 if not stdlib_json_file:
@@ -181,6 +193,8 @@ def _go_pkg_info_aspect_impl(target, ctx):
         stdlib_json_file = ctx.attr._go_stdlib[GoStdLib]._list_json
         stdlib_cache_dir = ctx.attr._go_stdlib[GoStdLib].cache_dir
 
+    # The transitive_* sets leave out this target's own files, for a target
+    # that embeds this one (see the embed case above).
     pkg_info = GoPkgInfo(
         stdlib_json_file = stdlib_json_file,
         stdlib_cache_dir = stdlib_cache_dir,
@@ -196,6 +210,9 @@ def _go_pkg_info_aspect_impl(target, ctx):
             direct = export_files,
             transitive = transitive_export_files,
         ),
+        transitive_pkg_json_files = depset(transitive = transitive_json_files),
+        transitive_compiled_go_files = depset(transitive = transitive_compiled_go_files),
+        transitive_export_files = depset(transitive = transitive_export_files),
     )
 
     return [
