@@ -65,7 +65,14 @@ def _go_archive_to_pkg(archive, pkg_id = None, imports = None):
         }
     return struct(
         ID = pkg_id or str(archive.data.label),
-        PkgPath = archive.data.importpath,
+        # go/packages defines PkgPath as the path go/types knows the package
+        # by, which is the one the compiler was given (-p, rules_go's
+        # importmap), not the one import statements name (importpath). The
+        # two differ for a library that embeds one with another import path:
+        # it inherits the embedded library's importmap, and export data
+        # readers keyed by path then find nothing under the importpath.
+        # Imports stay keyed by importpath, as import statements are.
+        PkgPath = archive.data.importmap or archive.data.importpath,
         ExportFile = file_path(archive.data.export_file),
         GoFiles = go_files,
         CompiledGoFiles = go_files,
