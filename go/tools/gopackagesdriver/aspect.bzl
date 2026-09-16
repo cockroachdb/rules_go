@@ -51,9 +51,9 @@ def file_path(f):
 #
 # This function was created to avoid breaking the signature of make_pkg_json
 # and avoid adding an explicit field for cgo output files in the pkg.json.
-def make_pkg_json_with_archive(ctx, name, archive):
+def make_pkg_json_with_archive(ctx, name, archive, pkg_id = None):
     pkg_json_file = ctx.actions.declare_file(name + ".pkg.json")
-    write_pkg_json(ctx, ctx.executable._pkgjson, archive, pkg_json_file)
+    write_pkg_json(ctx, ctx.executable._pkgjson, archive, pkg_json_file, pkg_id)
     return pkg_json_file
 
 # deprecated: use make_pkg_json_with_archive instead
@@ -103,15 +103,26 @@ def _go_pkg_info_aspect_impl(target, ctx):
         pkg_json_files.append(make_pkg_json_with_archive(ctx, archive.data.name, archive))
 
         if ctx.rule.kind == "go_test":
-            for dep_archive in archive.direct:
-                # find the archive containing the test sources
-                if archive.data.label == dep_archive.data.label:
-                    pkg_json_files.append(make_pkg_json_with_archive(ctx, dep_archive.data.name, dep_archive))
-                    compiled_go_files.extend(dep_archive.source.srcs)
-                    if dep_archive.data.cgo_out_dir:
-                        compiled_go_files.append(dep_archive.data.cgo_out_dir)
-                    export_files.append(dep_archive.data.export_file)
-                    break
+            # A go_test compiles two archives under the test's own label: the
+            # internal one, the library plus its in-package test files, and
+            # the external one, the "<package>_test" test files, which imports
+            # the internal one. The driver builds the external test package
+            # out of the internal archive's file list (MoveTestFiles), but the
+            # internal archive's imports are not a complete record of what
+            # those files may import: rules_go drops from the internal archive
+            # every dependency that would form a cycle through the library
+            # under test (_recompile_external_deps). So the external archive is
+            # written too, under the ID the driver gives that package, for its
+            # imports.
+            test_archives = [a for a in archive.direct if a.data.label == archive.data.label]
+            for dep_archive in test_archives:
+                is_external = any([dep_archive.data.name == a.data.name + "_test" for a in test_archives])
+                pkg_id = str(dep_archive.data.label) + ("_xtest" if is_external else "")
+                pkg_json_files.append(make_pkg_json_with_archive(ctx, dep_archive.data.name, dep_archive, pkg_id))
+                compiled_go_files.extend(dep_archive.source.srcs)
+                if dep_archive.data.cgo_out_dir:
+                    compiled_go_files.append(dep_archive.data.cgo_out_dir)
+                export_files.append(dep_archive.data.export_file)
 
     # If there was no stdlib json in any dependencies, fetch it from the
     # current go_ node.

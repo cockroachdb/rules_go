@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"io"
@@ -184,6 +185,7 @@ func (fp *FlatPackage) IsStdlib() bool {
 func ResolveImports(pkg *packages.Package, resolve ResolvePkgFunc, overlays map[string][]byte) error {
 	fset := token.NewFileSet()
 
+	files := make([]*ast.File, 0, len(pkg.CompiledGoFiles))
 	for _, file := range pkg.CompiledGoFiles {
 		// Only assign overlayContent when an overlay for the file exists, since ParseFile checks by type.
 		// If overlay is assigned directly from the map, it will have []byte as type
@@ -196,11 +198,14 @@ func ResolveImports(pkg *packages.Package, resolve ResolvePkgFunc, overlays map[
 		if err != nil {
 			return err
 		}
-		// If the name is not provided, fetch it from the sources
-		if pkg.Name == "" {
-			pkg.Name = f.Name.Name
-		}
+		files = append(files, f)
+	}
+	// If the name is not provided, fetch it from the sources
+	if pkg.Name == "" {
+		pkg.Name = packageName(pkg.CompiledGoFiles, files)
+	}
 
+	for _, f := range files {
 		for _, rawImport := range f.Imports {
 			imp, err := strconv.Unquote(rawImport.Path.Value)
 			if err != nil {
@@ -221,6 +226,27 @@ func ResolveImports(pkg *packages.Package, resolve ResolvePkgFunc, overlays map[
 	}
 
 	return nil
+}
+
+// packageName returns the package clause of a package's own files. A go_test's
+// archive lists the test's external test files too, whose clause is
+// "<name>_test", and nothing guarantees one of the package's own files comes
+// first; taking the first clause would then make MoveTestFiles sort the
+// package's own test files into the external test package. Files that are not
+// tests decide; failing those, a test file whose clause does not end in
+// "_test"; failing those, the package name the "_test" clause was formed from.
+func packageName(paths []string, files []*ast.File) string {
+	var first string
+	for i, f := range files {
+		name := f.Name.Name
+		if first == "" {
+			first = name
+		}
+		if !strings.HasSuffix(paths[i], "_test.go") || !strings.HasSuffix(name, "_test") {
+			return name
+		}
+	}
+	return strings.TrimSuffix(first, "_test")
 }
 
 func (fp *FlatPackage) IsRoot() bool {

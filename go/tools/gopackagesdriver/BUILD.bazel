@@ -1,4 +1,4 @@
-load("//go:def.bzl", "go_binary", "go_library")
+load("//go:def.bzl", "go_binary", "go_library", "go_test")
 load("//go/private:common.bzl", "RULES_GO_REPO_NAME")
 load("//go/tools/bazel_testing:def.bzl", "go_bazel_test")
 
@@ -31,6 +31,12 @@ go_binary(
         # both to specify the aspect and to match labels in query output.
         "rulesGoRepositoryName": RULES_GO_REPO_NAME,
     },
+)
+
+go_test(
+    name = "gopackagesdriver_unit_test",
+    srcs = ["packageregistry_test.go"],
+    embed = [":gopackagesdriver_lib"],
 )
 
 go_bazel_test(
