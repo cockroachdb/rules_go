@@ -90,15 +90,44 @@ func (pr *PackageRegistry) ResolveImports(overlays map[string][]byte) error {
 		return nil
 	}
 
-	for _, pkg := range pr.packagesByID {
+	// The aspect writes a go_test's external test archive under the test's
+	// label plus "_xtest", the ID MoveTestFiles gives the package it builds
+	// from the test's external test files. Those entries are folded into that
+	// package below, so gather the packages to process first.
+	var pkgs []*packages.Package
+	for id, pkg := range pr.packagesByID {
+		if !strings.HasSuffix(id, "_xtest") {
+			pkgs = append(pkgs, pkg)
+		}
+	}
+
+	for _, pkg := range pkgs {
 		if err := ResolveImports(pkg, resolve, overlays); err != nil {
 			return err
 		}
 
+		external := pr.packagesByID[pkg.ID+"_xtest"]
 		testPkg := MoveTestFiles(pkg)
-		if testPkg != nil {
-			pr.packagesByID[testPkg.ID] = testPkg
+		if testPkg == nil {
+			// No external test files. The external archive's entry lists
+			// every file of the test and must not become a package of its own.
+			delete(pr.packagesByID, pkg.ID+"_xtest")
+			continue
 		}
+		if external != nil {
+			// MoveTestFiles copied the internal package's imports. The external
+			// archive's are the ones this package was compiled with: rules_go
+			// drops from the internal archive every dependency that would form
+			// a cycle through the library under test, and the external archive
+			// imports those as variants recompiled against the internal archive
+			// (_recompile_external_deps in test.bzl), which the aspect writes
+			// as packages of their own.
+			for path, imp := range external.Imports {
+				testPkg.Imports[path] = imp
+			}
+			testPkg.ExportFile = external.ExportFile
+		}
+		pr.packagesByID[testPkg.ID] = testPkg
 	}
 
 	return nil
