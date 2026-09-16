@@ -57,13 +57,20 @@ func importIDs(imports map[string]*packages.Package) map[string]string {
 // must not be taken from the first file.
 func TestResolveImportsExternalTests(t *testing.T) {
 	srcs := writeSources(t, []struct{ name, content string }{
-		{"a_external_test.go", "package a_test\n\nimport (\n\t\"testing\"\n\n\t\"example.com/helper\"\n)\n\nfunc TestExternal(t *testing.T) { helper.Helper() }\n"},
+		{"a_external_test.go", "package a_test\n\nimport (\n\t\"testing\"\n\n\t\"example.com/helper\"\n\t\"example.com/util\"\n)\n\nfunc TestExternal(t *testing.T) { helper.Helper(); util.U() }\n"},
 		{"a_internal_test.go", "package a\n\nimport \"testing\"\n\nfunc TestInternal(t *testing.T) {}\n"},
-		{"a.go", "package a\n\nimport \"fmt\"\n\nfunc A() { fmt.Println() }\n"},
+		{"a.go", "package a\n\nimport (\n\t\"fmt\"\n\n\t\"example.com/util\"\n)\n\nfunc A() { fmt.Println(); util.U() }\n"},
 		{"helper.go", "package helper\n\nimport \"example.com/a\"\n\nfunc Helper() { a.A() }\n"},
+		{"util.go", "package util\n\nfunc U() {}\n"},
 	})
-	testSrcs, helperSrcs := srcs[:3], srcs[3:]
+	testSrcs, helperSrcs, utilSrcs := srcs[:3], srcs[3:4], srcs[4:]
 
+	// helper imports a, so for the external tests rules_go recompiled it
+	// against the internal archive and dropped it from the internal one.
+	// The aspect writes that variant under its own ID and the external
+	// archive imports it by that ID; util, which does not reach a, is the
+	// production package for both.
+	const helperVariant = "@//helper:helper [@//a:a_test]"
 	pr := NewPackageRegistry(bazelVersion{6, 0, 0},
 		&FlatPackage{
 			ID:              "@//a:a_test",
@@ -71,8 +78,7 @@ func TestResolveImportsExternalTests(t *testing.T) {
 			ExportFile:      "a_test.x",
 			GoFiles:         slices.Clone(testSrcs),
 			CompiledGoFiles: slices.Clone(testSrcs),
-			// helper imports a, so the recompiled internal archive lost it.
-			Imports: map[string]string{},
+			Imports:         map[string]string{"example.com/util": "@//util:util"},
 		},
 		&FlatPackage{
 			ID:              "@//a:a_test_xtest",
@@ -82,7 +88,8 @@ func TestResolveImportsExternalTests(t *testing.T) {
 			CompiledGoFiles: slices.Clone(testSrcs),
 			Imports: map[string]string{
 				"example.com/a":      "@//a:a_test",
-				"example.com/helper": "@//helper:helper",
+				"example.com/helper": helperVariant,
+				"example.com/util":   "@//util:util",
 			},
 		},
 		&FlatPackage{
@@ -92,6 +99,22 @@ func TestResolveImportsExternalTests(t *testing.T) {
 			GoFiles:         slices.Clone(helperSrcs),
 			CompiledGoFiles: slices.Clone(helperSrcs),
 			Imports:         map[string]string{"example.com/a": "@//a:a"},
+		},
+		&FlatPackage{
+			ID:              helperVariant,
+			PkgPath:         "example.com/helper",
+			ExportFile:      "a_test.helper.recompile1.x",
+			GoFiles:         slices.Clone(helperSrcs),
+			CompiledGoFiles: slices.Clone(helperSrcs),
+			Imports:         map[string]string{"example.com/a": "@//a:a_test"},
+		},
+		&FlatPackage{
+			ID:              "@//util:util",
+			PkgPath:         "example.com/util",
+			ExportFile:      "util.x",
+			GoFiles:         slices.Clone(utilSrcs),
+			CompiledGoFiles: slices.Clone(utilSrcs),
+			Imports:         map[string]string{},
 		},
 		&FlatPackage{ID: "@io_bazel_rules_go//stdlib:fmt", PkgPath: "fmt", ExportFile: "fmt.x", Standard: true},
 		&FlatPackage{ID: "@io_bazel_rules_go//stdlib:testing", PkgPath: "testing", ExportFile: "testing.x", Standard: true},
@@ -126,12 +149,29 @@ func TestResolveImportsExternalTests(t *testing.T) {
 	}
 	wantImports := map[string]string{
 		"example.com/a":      "@//a:a_test",
-		"example.com/helper": "@//helper:helper",
+		"example.com/helper": helperVariant,
+		"example.com/util":   "@//util:util",
 		"fmt":                "@io_bazel_rules_go//stdlib:fmt",
 		"testing":            "@io_bazel_rules_go//stdlib:testing",
 	}
 	if got := importIDs(external.Imports); !maps.Equal(got, wantImports) {
 		t.Errorf("external Imports = %v, want %v", got, wantImports)
+	}
+
+	// The variant is a package like any other, and reachable from the
+	// external test package, so a load of the test returns it.
+	roots, pkgs := pr.Match([]string{"@//a:a_test"})
+	sort.Strings(roots)
+	if want := []string{"@//a:a_test", "@//a:a_test_xtest"}; !slices.Equal(roots, want) {
+		t.Errorf("roots = %v, want %v", roots, want)
+	}
+	var ids []string
+	for _, pkg := range pkgs {
+		ids = append(ids, pkg.ID)
+	}
+	sort.Strings(ids)
+	if !slices.Contains(ids, helperVariant) || slices.Contains(ids, "@//helper:helper") {
+		t.Errorf("packages reachable from the test = %v, want the helper variant and not the production helper", ids)
 	}
 }
 
